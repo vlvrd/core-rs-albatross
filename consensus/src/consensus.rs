@@ -215,6 +215,18 @@ impl<P: ConsensusProtocol> Consensus<P> {
             BlockchainEvent::Rebranched(_, ref adopted_blocks) => {
                 blocks = adopted_blocks.iter().map(|(_, block)| block).collect();
             },
+            BlockchainEvent::Forked((hash1, block1), (hash2, block2)) => {
+                // TODO: Fork proof
+                // Only relay blocks if we are synced up.
+                if state.established {
+                    for agent in state.agents.values() {
+                        for &block in blocks.iter() {
+                            agent.relay_block(block);
+                        }
+                    }
+                }
+                return;
+            },
         }
 
         // print block height

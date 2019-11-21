@@ -120,6 +120,7 @@ pub enum BlockchainEvent<BL: Block> {
     Extended(Blake2bHash),
     Rebranched(Vec<(Blake2bHash, BL)>, Vec<(Blake2bHash, BL)>),
     Finalized(Blake2bHash),
+    Forked((Blake2bHash, BL), (Blake2bHash, BL)),
 }
 
 #[derive(Debug, Fail, Clone, PartialEq, Eq)]

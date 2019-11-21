@@ -146,11 +146,13 @@ impl BlockchainState {
     }
 
     pub fn current_slashed_set(&self) -> BitSet {
-        self.reward_registry.slashed_set(policy::epoch_at(self.block_number()), None)
+        self.reward_registry.slashed_set_for_epoch(policy::epoch_at(self.block_number()), None)
+            .unwrap()
     }
 
     pub fn last_slashed_set(&self) -> BitSet {
-        self.reward_registry.slashed_set(policy::epoch_at(self.block_number()) - 1, None)
+        self.reward_registry.slashed_set_for_epoch(policy::epoch_at(self.block_number()) - 1, None)
+            .unwrap()
     }
 
     pub fn reward_registry(&self) -> &SlashRegistry {
@@ -572,7 +574,9 @@ impl Blockchain {
         // Get the slashed set used to finalize the previous epoch before garbage collecting it below.
         let mut slashed_set: Option<BitSet> = None;
         if chain_info.head.ty() == BlockType::Macro {
-            slashed_set = Some(state.reward_registry.slashed_set(policy::epoch_at(chain_info.head.block_number()) - 1, Some(&txn)));
+            slashed_set = Some(state.reward_registry.slashed_set_for_epoch(
+                policy::epoch_at(chain_info.head.block_number()) - 1, Some(&txn)
+            ).unwrap());
         }
 
         if let Err(e) = state.reward_registry.commit_block(&mut txn, &chain_info.head, prev_info.head.next_view_number()) {
@@ -1196,7 +1200,6 @@ impl Blockchain {
         }
     }
 
-    // TODO: Lock my screen. No.
     pub fn get_slot_at(&self, block_number: u32, view_number: u32, txn_option: Option<&Transaction>) -> Option<(Slot, u16)> {
         let state = self.state.read_recursive();
 
@@ -1295,11 +1298,20 @@ impl Blockchain {
         }).collect::<Vec<Inherent>>()
     }
 
-    // Get slash set of epoch at specific block number
-    // Returns slash set before applying block with that block_number (TODO Tests)
+    /// Get slash set of epoch at specific block number.
+    /// The given `epoch_number` indicates which epoch's slash set is retrieved, since we always
+    /// track two slash sets at the same time.
+    /// The `block_number` is the block number at which we look up the state.
+    /// This allows to look up the slash set for the previous epoch in the middle of the current one.
+    /// Returns slash set before applying block with that block_number.
     pub fn slashed_set_at(&self, epoch_number: u32, block_number: u32) -> Result<BitSet, EpochStateError> {
         let s = self.state.read();
         s.reward_registry.slashed_set_at(epoch_number, block_number, None)
+    }
+
+    pub fn slashed_set_for_epoch(&self, epoch_number: u32) -> Result<BitSet, EpochStateError> {
+        let s = self.state.read();
+        s.reward_registry.slashed_set_for_epoch(epoch_number, None)
     }
 
     pub fn current_validators(&self) -> MappedRwLockReadGuard<ValidatorSlots> {
@@ -1328,7 +1340,8 @@ impl Blockchain {
             .stake_slots;
 
         // Slashed slots
-        let slashed_set = state.reward_registry.slashed_set(epoch, None);
+        let slashed_set = state.reward_registry.slashed_set_for_epoch(epoch, None)
+            .unwrap();
 
         // Total reward for this epoch
         // TODO: Compute reward from the epoch we are in and add the remainder from last epoch

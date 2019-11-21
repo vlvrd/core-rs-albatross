@@ -195,7 +195,7 @@ impl SlashRegistry {
             let block_number = fork_proof.header1.block_number;
             let view_number = fork_proof.header1.view_number;
             let slot_number = self.get_slot_number_at(block_number, view_number, Some(&txn))
-                .unwrap();
+                .ok_or(SlashPushError::UnexpectedBlock)?;
 
             let slash_epoch = policy::epoch_at(block_number);
             if block_epoch == slash_epoch {
@@ -310,13 +310,16 @@ impl SlashRegistry {
     }
 
     // Get latest known slash set of epoch
-    pub fn slashed_set(&self, epoch_number: u32, txn_option: Option<&Transaction>) -> BitSet {
+    pub fn slashed_set_for_epoch(&self, epoch_number: u32, txn_option: Option<&Transaction>) -> Result<BitSet, EpochStateError> {
         self.slashed_set_at(epoch_number, policy::first_block_of(epoch_number + 2), txn_option)
-            .unwrap()
     }
 
-    // Get slash set of epoch at specific block number
-    // Returns slash set before applying block with that block_number (TODO Tests)
+    /// Get slash set of epoch at specific block number.
+    /// The given `epoch_number` indicates which epoch's slash set is retrieved, since we always
+    /// track two slash sets at the same time.
+    /// The `block_number` is the block number at which we look up the state.
+    /// This allows to look up the slash set for the previous epoch in the middle of the current one.
+    /// Returns slash set before applying block with that block_number. (TODO Tests)
     pub fn slashed_set_at(&self, epoch_number: u32, block_number: u32, txn_option: Option<&Transaction>) -> Result<BitSet, EpochStateError> {
         let epoch_start = policy::first_block_of(policy::epoch_at(block_number));
 

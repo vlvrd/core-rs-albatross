@@ -40,6 +40,13 @@ impl Subscription {
         }
     }
 
+    pub fn matches_fork_proof(&self) -> bool {
+        match self {
+            Subscription::None => false,
+            _ => true
+        }
+    }
+
     pub fn matches_transaction(&self, transaction: &Transaction) -> bool {
         match self {
             Subscription::None => false,

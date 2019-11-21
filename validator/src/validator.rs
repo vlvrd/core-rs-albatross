@@ -243,6 +243,11 @@ impl Validator {
                 let (hash, _) = new_chain.last().expect("Expected non-empty new_chain after rebranch");
                 self.validator_network.on_blockchain_changed(hash);
             }
+
+            BlockchainEvent::Forked(_, _) => {
+                // TODO: Should we return here?
+                return;
+            },
         }
 
         let mut state = self.state.write();

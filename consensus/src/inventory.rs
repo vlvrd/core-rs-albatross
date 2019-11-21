@@ -7,6 +7,7 @@ use parking_lot::{Mutex, RwLock};
 use weak_table::PtrWeakHashSet;
 
 use beserial::Serialize;
+use block_albatross::ForkProof;
 use block_base::{Block, BlockError, BlockHeader};
 use blockchain_base::{AbstractBlockchain, Direction, PushError, PushResult};
 use collections::{LimitHashSet, UniqueLinkedList};
@@ -39,6 +40,7 @@ use utils::throttled_queue::ThrottledQueue;
 
 use crate::consensus_agent::sync::{SyncEvent, SyncProtocol};
 use crate::ConsensusProtocol;
+use crate::fork_proofs::ForkProofPool;
 
 #[derive(Debug, PartialEq, Eq, PartialOrd, Ord, Hash)]
 enum InventoryManagerTimer {
@@ -153,6 +155,8 @@ pub enum InventoryEvent<BE: BlockError> {
     BlockProcessed(Blake2bHash, Result<PushResult, PushError<BE>>),
     TransactionProcessed(Blake2bHash, ReturnCode),
     GetBlocksTimeout,
+    NewForkProofAnnounced,
+    KnownForkProofAnnounced,
 }
 
 #[derive(Debug, PartialEq, Eq, PartialOrd, Ord, Hash)]
@@ -210,6 +214,7 @@ struct InventoryAgentState {
     /// InvVectors we want to request via getData are collected here and periodically requested.
     blocks_to_request: UniqueLinkedList<InvVector>,
     txs_to_request: ThrottledQueue<InvVector>,
+    fork_proofs_to_request: ThrottledQueue<InvVector>,
 
     /// Queue of transaction inv vectors waiting to be sent out.
     waiting_tx_inv_vectors: ThrottledQueue<InvVector>,
@@ -236,6 +241,7 @@ struct InventoryAgentState {
 pub struct InventoryAgent<P: ConsensusProtocol + 'static> {
     blockchain: Arc<P::Blockchain>,
     mempool: Arc<Mempool<P::Blockchain>>,
+    fork_proof_pool: Arc<RwLock<ForkProofPool>>,
     peer: Arc<Peer>,
     inv_mgr: Arc<RwLock<InventoryManager<P>>>,
     sync_protocol: Arc<P::SyncProtocol>,
@@ -274,13 +280,19 @@ impl<P: ConsensusProtocol + 'static> InventoryAgent<P> {
     const MEMPOOL_ENTRIES_MAX: usize = 10_000;
     /// Minimum fee per byte (sat/byte) such that a transaction is not considered free.
     const TRANSACTION_RELAY_FEE_MIN: u64 = 1;
+    /// Throttle fork proofs. TODO: Come up with better numbers.
+    const FORK_PROOFS_AT_ONCE: usize = 100;
+    const FORK_PROOFS_PER_INTERVAL: usize = 10;
+    const FORK_PROOF_THROTTLE: Duration = Duration::from_millis(1000);
+    const REQUEST_FORK_PROOFS_WAITING_MAX: usize = 5000;
 
     const SUBSCRIPTION_CHANGE_GRACE_PERIOD: Duration = Duration::from_secs(2);
 
-    pub fn new(blockchain: Arc<P::Blockchain>, mempool: Arc<Mempool<P::Blockchain>>, inv_mgr: Arc<RwLock<InventoryManager<P>>>, peer: Arc<Peer>, sync_agent: Arc<P::SyncProtocol>) -> Arc<Self> {
+    pub fn new(blockchain: Arc<P::Blockchain>, mempool: Arc<Mempool<P::Blockchain>>, inv_mgr: Arc<RwLock<InventoryManager<P>>>, peer: Arc<Peer>, sync_agent: Arc<P::SyncProtocol>, fork_proof_pool: Arc<RwLock<ForkProofPool>>) -> Arc<Self> {
         let this = Arc::new(InventoryAgent {
             blockchain,
             mempool,
+            fork_proof_pool,
             peer,
             inv_mgr,
             sync_protocol: sync_agent,
@@ -293,6 +305,12 @@ impl<P: ConsensusProtocol + 'static> InventoryAgent<P> {
                     Self::TRANSACTION_THROTTLE,
                     Self::TRANSACTIONS_PER_SECOND + Self::FREE_TRANSACTIONS_PER_SECOND,
                     Some(Self::REQUEST_TRANSACTIONS_WAITING_MAX),
+                ),
+                fork_proofs_to_request: ThrottledQueue::new(
+                    Self::FORK_PROOFS_AT_ONCE,
+                    Self::FORK_PROOF_THROTTLE,
+                    Self::FORK_PROOFS_PER_INTERVAL,
+                    Some(Self::REQUEST_FORK_PROOFS_WAITING_MAX),
                 ),
 
                 waiting_tx_inv_vectors: ThrottledQueue::new(
@@ -424,7 +442,8 @@ impl<P: ConsensusProtocol + 'static> InventoryAgent<P> {
         // Ignore block announcements from nano clients as they will ignore our getData requests anyways (they only know headers).
         // Also don't request transactions that the mempool has filtered.
         match vector.ty {
-            InvVectorType::Block => !self.peer.peer_address().services.is_nano_node(),
+            InvVectorType::Block | InvVectorType::ForkProof =>
+                !self.peer.peer_address().services.is_nano_node(),
             InvVectorType::Transaction => !self.mempool.is_filtered(&vector.hash),
             _ => false,
         }
@@ -454,6 +473,7 @@ impl<P: ConsensusProtocol + 'static> InventoryAgent<P> {
         let num_vectors = vectors.len();
         let mut unknown_blocks = Vec::new();
         let mut unknown_txs = Vec::new();
+        let mut unknown_fork_proofs = Vec::new();
         let vectors: Vec<InvVector> = vectors.into_iter().filter(|vector| {
             !state.objects_in_flight.contains(&vector) && self.should_request_data(&vector)
         }).collect();
@@ -477,6 +497,14 @@ impl<P: ConsensusProtocol + 'static> InventoryAgent<P> {
                         self.notifier.read().notify(InventoryEvent::KnownTransactionAnnounced);
                     }
                 }
+                InvVectorType::ForkProof => {
+                    if !self.fork_proof_pool.read().contains_hash(&vector.hash) {
+                        unknown_fork_proofs.push(vector);
+                        self.notifier.read().notify(InventoryEvent::NewForkProofAnnounced);
+                    } else {
+                        self.notifier.read().notify(InventoryEvent::KnownForkProofAnnounced);
+                    }
+                }
                 InvVectorType::Error => () // XXX Why do we have this??
             }
         }
@@ -488,7 +516,7 @@ impl<P: ConsensusProtocol + 'static> InventoryAgent<P> {
         let mut state = self.state.write();
         if !unknown_blocks.is_empty() || !unknown_txs.is_empty() {
             if state.bypass_mgr {
-                self.queue_vectors(&mut *state, unknown_blocks, unknown_txs);
+                self.queue_vectors(&mut *state, unknown_blocks, unknown_txs, unknown_fork_proofs);
             } else {
                 // Give up write lock before notifying.
                 drop(state);
@@ -498,6 +526,9 @@ impl<P: ConsensusProtocol + 'static> InventoryAgent<P> {
                     inv_mgr.ask_to_request_vector(self, &vector);
                 }
                 for vector in unknown_txs {
+                    inv_mgr.ask_to_request_vector(self, &vector);
+                }
+                for vector in unknown_fork_proofs {
                     inv_mgr.ask_to_request_vector(self, &vector);
                 }
             }
@@ -643,12 +674,13 @@ impl<P: ConsensusProtocol + 'static> InventoryAgent<P> {
         match vector.ty {
             InvVectorType::Block => state.blocks_to_request.enqueue(vector),
             InvVectorType::Transaction => state.txs_to_request.enqueue(vector),
+            InvVectorType::ForkProof => state.fork_proofs_to_request.enqueue(vector),
             InvVectorType::Error => () // XXX Get rid of this!
         }
         self.request_vectors_throttled(&mut *state);
     }
 
-    fn queue_vectors(&self, state: &mut InventoryAgentState, block_vectors: Vec<InvVector>, tx_vectors: Vec<InvVector>) {
+    fn queue_vectors(&self, state: &mut InventoryAgentState, block_vectors: Vec<InvVector>, tx_vectors: Vec<InvVector>, fork_proof_vectors: Vec<InvVector>) {
         for vector in block_vectors {
             state.blocks_to_request.enqueue(vector);
         }
@@ -657,13 +689,18 @@ impl<P: ConsensusProtocol + 'static> InventoryAgent<P> {
             state.txs_to_request.enqueue(vector);
         }
 
+        for vector in fork_proof_vectors {
+            state.fork_proofs_to_request.enqueue(vector);
+        }
+
         self.request_vectors_throttled(state);
     }
 
     fn request_vectors_throttled(&self, state: &mut InventoryAgentState) {
         self.timers.clear_delay(&InventoryAgentTimer::GetDataThrottle);
 
-        if state.blocks_to_request.len() + state.txs_to_request.num_available() > Self::REQUEST_THRESHOLD {
+        if state.blocks_to_request.len() + state.txs_to_request.num_available()
+            + state.fork_proofs_to_request.num_available() > Self::REQUEST_THRESHOLD {
             self.request_vectors(state);
         } else {
             let weak = self.self_weak.clone();
@@ -682,16 +719,24 @@ impl<P: ConsensusProtocol + 'static> InventoryAgent<P> {
         }
 
         // Don't do anything if there are no objects queued to request.
-        if state.blocks_to_request.is_empty() && !state.txs_to_request.check_available() {
+        if state.blocks_to_request.is_empty() && !state.txs_to_request.check_available()
+            && !state.fork_proofs_to_request.check_available() {
             return;
         }
 
         // Request queued objects from the peer. Only request up to VECTORS_MAX_COUNT objects at a time.
+        // TODO: Fair distribution.
         let num_blocks = state.blocks_to_request.len().min(Self::REQUEST_VECTORS_MAX);
-        let num_txs = Self::REQUEST_VECTORS_MAX - num_blocks; // `dequeue_multi` takes care of the above comparison
+        let num_fork_proofs = state.fork_proofs_to_request.num_available()
+            .min(Self::REQUEST_VECTORS_MAX - num_blocks);
+        let num_txs = Self::REQUEST_VECTORS_MAX.saturating_sub(num_blocks + num_fork_proofs);
 
         let mut vectors = Vec::new();
         for vector in state.blocks_to_request.dequeue_multi(num_blocks) {
+            state.objects_in_flight.insert(vector.clone());
+            vectors.push(vector);
+        }
+        for vector in state.fork_proofs_to_request.dequeue_multi(num_fork_proofs) {
             state.objects_in_flight.insert(vector.clone());
             vectors.push(vector);
         }
@@ -761,7 +806,8 @@ impl<P: ConsensusProtocol + 'static> InventoryAgent<P> {
 
         // If there are more objects to request, request them.
         let mut state = self.state.write();
-        if !state.blocks_to_request.is_empty() || state.txs_to_request.check_available() {
+        if !state.blocks_to_request.is_empty() || state.txs_to_request.check_available()
+            || state.fork_proofs_to_request.check_available() {
             self.request_vectors(&mut *state);
         } else {
             // Give up write lock before notifying.
@@ -907,6 +953,9 @@ impl<P: ConsensusProtocol + 'static> InventoryAgent<P> {
                         unknown_objects.push(vector);
                     }
                 }
+                InvVectorType::ForkProof => {
+                    // TODO
+                }
                 InvVectorType::Error => () // XXX Why do we have this??
             }
         }
@@ -948,7 +997,7 @@ impl<P: ConsensusProtocol + 'static> InventoryAgent<P> {
                         }
                     }
                 }
-                InvVectorType::Transaction => {} // XXX JavaScript client errors here
+                InvVectorType::Transaction | InvVectorType::ForkProof => {} // XXX JavaScript client errors here
                 InvVectorType::Error => {} // XXX Why do we have this??
             }
         }
@@ -961,6 +1010,31 @@ impl<P: ConsensusProtocol + 'static> InventoryAgent<P> {
 
     fn on_epoch_transactions(&self, epoch_transactions_message: EpochTransactionsMessage) {
         self.sync_protocol.on_epoch_transactions(epoch_transactions_message);
+    }
+
+    pub fn relay_fork_proof(&self, fork_proof: &ForkProof) -> bool {
+        // Only relay block if it matches the peer's subscription.
+        if !self.state.read().remote_subscription.matches_fork_proof() {
+            return false;
+        }
+
+        let vector = InvVector::from_fork_proof_hash(fork_proof.hash());
+
+        // Don't relay block to this peer if it already knows it.
+        if self.state.read().known_objects.contains(&vector) {
+            return false;
+        }
+
+        let mut state = self.state.write();
+        // Relay fork proof to peer and add some transaction vectors.
+        let mut vectors = state.waiting_tx_inv_vectors.dequeue_multi(InvVector::VECTORS_MAX_COUNT - 1);
+        vectors.insert(0, vector.clone());
+        self.peer.channel.send_or_close(Message::Inv(vectors));
+
+        // Assume that the peer knows this block now.
+        state.known_objects.insert(vector);
+
+        true
     }
 
     pub fn relay_block(&self, block: &<P::Blockchain as AbstractBlockchain>::Block) -> bool {
@@ -977,7 +1051,7 @@ impl<P: ConsensusProtocol + 'static> InventoryAgent<P> {
         }
 
         let mut state = self.state.write();
-        // Relay block to peer.
+        // Relay fork proof to peer and add some transaction vectors.
         let mut vectors = state.waiting_tx_inv_vectors.dequeue_multi(InvVector::VECTORS_MAX_COUNT - 1);
         vectors.insert(0, vector.clone());
         self.peer.channel.send_or_close(Message::Inv(vectors));

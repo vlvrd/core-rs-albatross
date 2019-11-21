@@ -88,7 +88,8 @@ impl BlockProducer {
         let prev_epoch = policy::epoch_at(self.blockchain.height() + 1) - 1;
         let slashed_set = self.blockchain.state()
             .reward_registry()
-            .slashed_set(prev_epoch, None);
+            .slashed_set_for_epoch(prev_epoch, None)
+            .unwrap();
         MacroExtrinsics::from_stake_slots_and_slashed_set(self.blockchain.next_slots(seed, Some(txn)).stake_slots, slashed_set)
     }
 

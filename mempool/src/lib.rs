@@ -369,6 +369,7 @@ impl<B: AbstractBlockchain + 'static> Mempool<B> {
                 self.restore_transactions(reverted_blocks);
                 self.evict_transactions();
             },
+            BlockchainEvent::Forked(_, _) => {},
         }
     }
 

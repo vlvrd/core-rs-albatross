@@ -33,6 +33,7 @@ nimiq-blockchain-albatross = { path = "../blockchain-albatross", version = "0.1"
 nimiq-blockchain-base = { path = "../blockchain-base", version = "0.1" }
 nimiq-collections = { path = "../collections", version = "0.1" }
 nimiq-database = { path = "../database", version = "0.1", features = ["full-nimiq"] }
+nimiq-fork-proof-pool = { path = "../fork-proof-pool", version = "0.1" }
 nimiq-hash = { path = "../hash", version = "0.1" }
 nimiq-macros = { path = "../macros", version = "0.1" }
 nimiq-mempool = { path = "../mempool", version = "0.1" }

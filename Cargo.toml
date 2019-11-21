@@ -45,6 +45,7 @@ members = [
     "handel",
     "ws-rpc-server",
     "vrf",
+    "fork-proof-pool",
 ]
 
 [profile.dev.package.pairing]

@@ -76,7 +76,7 @@ impl<B: AbstractBlockchain + 'static> AccountsChunkCache<B> {
             BlockchainEvent::Extended(_) | BlockchainEvent::Rebranched(_, _) => {
                 self.compute_chunks_for_block();
             },
-            BlockchainEvent::Finalized(_) => (),
+            BlockchainEvent::Finalized(_) | BlockchainEvent::Forked(_, _) => (),
         }
     }
 

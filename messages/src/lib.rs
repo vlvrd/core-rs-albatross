@@ -753,6 +753,7 @@ pub enum InvVectorType {
     Error = 0,
     Transaction = 1,
     Block = 2,
+    ForkProof = 3,
 }
 
 #[derive(Debug, Clone, Eq, PartialEq, Ord, PartialOrd, Hash, Serialize, Deserialize)]
@@ -773,6 +774,10 @@ impl InvVector {
 
     pub fn from_tx_hash(hash: Blake2bHash) -> Self {
         Self::new(InvVectorType::Transaction, hash)
+    }
+
+    pub fn from_fork_proof_hash(hash: Blake2bHash) -> Self {
+        Self::new(InvVectorType::ForkProof, hash)
     }
 }
 
