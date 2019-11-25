@@ -1,7 +1,7 @@
 use std::collections::HashMap;
 use std::ops::Mul;
 use std::sync::{Arc, Weak};
-use std::time::Duration;
+use std::time::{Duration, Instant};
 
 use parking_lot::RwLock;
 
@@ -577,6 +577,8 @@ impl Validator {
             return;
         }
 
+        let start = Instant::now();
+
         let max_size = MicroBlock::MAX_SIZE
             - MicroHeader::SIZE
             - MicroExtrinsics::get_metadata_size(0, 0);
@@ -586,10 +588,11 @@ impl Validator {
         let timestamp = self.consensus.network.network_time.now();
 
         let block = self.block_producer.next_micro_block(fork_proofs, timestamp, view_number, vec![], view_change_proof);
-        info!("Produced block #{}.{}: {}",
+        info!("Produced block #{}.{}: {} (took {}ms)",
               block.header.block_number,
               block.header.view_number,
-              block.header.hash::<Blake2bHash>());
+              block.header.hash::<Blake2bHash>(),
+              start.elapsed().as_millis());
 
         // Drop lock before push, otherwise two concurrent threads can dead-lock because the
         // validator and blockchain lock are circular dependent.
