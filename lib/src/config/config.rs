@@ -22,6 +22,7 @@ use primitives::networks::NetworkId;
 use utils::key_store::Error as KeyStoreError;
 use utils::key_store::KeyStore;
 use keys::PublicKey;
+use consensus::consensus_agent::sync::AlbatrossSyncType;
 
 use crate::client::Client;
 use crate::config::command_line::CommandLine;
@@ -47,6 +48,15 @@ use crate::error::Error;
 pub enum ConsensusConfig {
     Full,
     MacroSync,
+}
+
+impl From<ConsensusConfig> for AlbatrossSyncType {
+    fn from(consensus_config: ConsensusConfig) -> Self {
+        match consensus_config {
+            ConsensusConfig::Full => AlbatrossSyncType::Full,
+            ConsensusConfig::MacroSync => AlbatrossSyncType::MacroBlock,
+        }
+    }
 }
 
 impl Default for ConsensusConfig {

@@ -26,12 +26,15 @@ use crate::consensus_agent::{ConsensusAgent, ConsensusAgentEvent};
 use crate::error::Error;
 use crate::inventory::InventoryManager;
 use crate::protocol::ConsensusProtocol;
+use crate::consensus_agent::sync::SyncProtocol;
 
 pub struct Consensus<P: ConsensusProtocol + 'static> {
     pub blockchain: Arc<P::Blockchain>,
     pub mempool: Arc<Mempool<P::Blockchain>>,
     pub network: Arc<Network<P::Blockchain>>,
     pub env: Environment,
+
+    sync_config: <P::SyncProtocol as SyncProtocol<P::Blockchain>>::Config,
 
     inv_mgr: Arc<RwLock<InventoryManager<P>>>,
     timers: Timers<ConsensusTimer>,
@@ -70,7 +73,7 @@ impl<P: ConsensusProtocol> Consensus<P> {
     const MIN_FULL_NODES: usize = 0;
     const SYNC_THROTTLE: Duration = Duration::from_millis(1500);
 
-    pub fn new(env: Environment, network_id: NetworkId, network_config: NetworkConfig, mempool_config: MempoolConfig) -> Result<Arc<Self>, Error> {
+    pub fn new(env: Environment, network_id: NetworkId, network_config: NetworkConfig, mempool_config: MempoolConfig, sync_config: <P::SyncProtocol as SyncProtocol<P::Blockchain>>::Config) -> Result<Arc<Self>, Error> {
         let network_time = Arc::new(NetworkTime::new());
         let blockchain = Arc::new(<P::Blockchain as AbstractBlockchain>::new(env.clone(), network_id, Arc::clone(&network_time))?);
         let mempool = Mempool::new(Arc::clone(&blockchain), mempool_config);
@@ -82,6 +85,8 @@ impl<P: ConsensusProtocol> Consensus<P> {
             mempool,
             network,
             env,
+
+            sync_config,
 
             inv_mgr: InventoryManager::new(),
             timers: Timers::new(),
@@ -142,7 +147,9 @@ impl<P: ConsensusProtocol> Consensus<P> {
             self.mempool.clone(),
             self.inv_mgr.clone(),
             self.accounts_chunk_cache.clone(),
-            peer.clone());
+            peer.clone(),
+            self.sync_config.clone(),
+        );
 
         let weak = self.self_weak.clone();
         let peer_arc_moved = peer.clone();

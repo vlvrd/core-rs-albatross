@@ -14,7 +14,7 @@ use network_primitives::services::ServiceFlags;
 use blockchain::Blockchain;
 
 use crate::error::Error;
-use crate::config::config::{ClientConfig, ProtocolConfig};
+use crate::config::config::{ClientConfig, ProtocolConfig, ConsensusConfig};
 
 
 /// Alias for the Consensus specialized over Albatross
@@ -110,6 +110,7 @@ impl TryFrom<ClientConfig> for ClientInner {
             config.network,
             network_config,
             config.mempool,
+            config.consensus.into(),
         )?;
 
         #[cfg(feature="validator")]

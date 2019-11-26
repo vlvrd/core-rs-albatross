@@ -253,7 +253,7 @@ pub struct ConsensusSettings {
 }
 
 #[derive(Deserialize, Debug, Copy, Clone, PartialEq, Eq)]
-#[serde(rename_all = "lowercase")]
+#[serde(rename_all = "kebab-case")]
 pub enum ConsensusType {
     Full,
     MacroSync,

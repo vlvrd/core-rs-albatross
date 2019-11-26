@@ -24,7 +24,9 @@ use utils::observer::{PassThroughListener, PassThroughNotifier, weak_listener};
 use utils::timers::Timers;
 
 pub trait SyncProtocol<B: AbstractBlockchain>: Send + Sync {
-    fn new(blockchain: Arc<B>, peer: Arc<Peer>) -> Arc<Self>;
+    type Config: Clone + Default + Send + Sync + 'static;
+
+    fn new(blockchain: Arc<B>, peer: Arc<Peer>, config: Self::Config) -> Arc<Self>;
     fn initiate_sync(&self) {}
     fn get_block_locators(&self, max_count: usize) -> Vec<Blake2bHash>;
     fn request_blocks(&self, locators: Vec<Blake2bHash>, max_results: u16);
@@ -48,7 +50,9 @@ pub struct FullSync<B: AbstractBlockchain> {
 }
 
 impl<B: AbstractBlockchain> SyncProtocol<B> for FullSync<B> {
-    fn new(blockchain: Arc<B>, peer: Arc<Peer>) -> Arc<Self> {
+    type Config = ();
+
+    fn new(blockchain: Arc<B>, peer: Arc<Peer>, config: Self::Config) -> Arc<Self> {
         Arc::new(Self {
             blockchain,
             peer,
@@ -181,7 +185,9 @@ impl MacroBlockSync {
 }
 
 impl SyncProtocol<AlbatrossBlockchain> for MacroBlockSync {
-    fn new(blockchain: Arc<AlbatrossBlockchain>, peer: Arc<Peer>) -> Arc<Self> {
+    type Config = ();
+
+    fn new(blockchain: Arc<AlbatrossBlockchain>, peer: Arc<Peer>, config: Self::Config) -> Arc<Self> {
         let this = Arc::new(Self {
             peer,
             blockchain,
@@ -342,3 +348,83 @@ impl SyncProtocol<AlbatrossBlockchain> for MacroBlockSync {
     }
 }
 
+
+#[derive(Clone, Debug)]
+pub enum AlbatrossSyncType {
+    Full,
+    MacroBlock,
+}
+
+impl Default for AlbatrossSyncType {
+    fn default() -> Self {
+        AlbatrossSyncType::Full
+    }
+}
+
+pub enum AlbatrossSyncProtocol {
+    Full(Arc<FullSync<AlbatrossBlockchain>>),
+    MacroBlock(Arc<MacroBlockSync>),
+}
+
+impl AlbatrossSyncProtocol {
+    pub fn ty(&self) -> AlbatrossSyncType {
+        match self {
+            AlbatrossSyncProtocol::Full(_) => AlbatrossSyncType::Full,
+            AlbatrossSyncProtocol::MacroBlock(_) => AlbatrossSyncType::MacroBlock,
+        }
+    }
+}
+
+impl SyncProtocol<AlbatrossBlockchain> for AlbatrossSyncProtocol {
+    type Config = AlbatrossSyncType;
+
+    fn new(blockchain: Arc<AlbatrossBlockchain>, peer: Arc<Peer>, config: Self::Config) -> Arc<Self> {
+        let sync_protocol = match config {
+            AlbatrossSyncType::Full => AlbatrossSyncProtocol::Full(FullSync::new(blockchain, peer, ())),
+            AlbatrossSyncType::MacroBlock => AlbatrossSyncProtocol::MacroBlock(MacroBlockSync::new(blockchain, peer, ())),
+        };
+        Arc::new(sync_protocol)
+    }
+
+    fn get_block_locators(&self, max_count: usize) -> Vec<Blake2bHash> {
+        match self {
+            AlbatrossSyncProtocol::Full(sync_protocol) => sync_protocol.get_block_locators(max_count),
+            AlbatrossSyncProtocol::MacroBlock(sync_protocol) => sync_protocol.get_block_locators(max_count),
+        }
+    }
+
+    fn request_blocks(&self, locators: Vec<Blake2bHash>, max_results: u16) {
+        match self {
+            AlbatrossSyncProtocol::Full(sync_protocol) => sync_protocol.request_blocks(locators, max_results),
+            AlbatrossSyncProtocol::MacroBlock(sync_protocol) => sync_protocol.request_blocks(locators, max_results),
+        }
+    }
+
+    fn on_block(&self, block: AlbatrossBlock) {
+        match self {
+            AlbatrossSyncProtocol::Full(sync_protocol) => sync_protocol.on_block(block),
+            AlbatrossSyncProtocol::MacroBlock(sync_protocol) => sync_protocol.on_block(block),
+        }
+    }
+
+    fn on_epoch_transactions(&self, epoch_transactions: EpochTransactionsMessage) {
+        match self {
+            AlbatrossSyncProtocol::Full(sync_protocol) => sync_protocol.on_epoch_transactions(epoch_transactions),
+            AlbatrossSyncProtocol::MacroBlock(sync_protocol) => sync_protocol.on_epoch_transactions(epoch_transactions),
+        }
+    }
+
+    fn register_listener<L: PassThroughListener<SyncEvent<<AlbatrossBlock as Block>::Error>> + 'static>(&self, listener: L) {
+        match self {
+            AlbatrossSyncProtocol::Full(sync_protocol) => sync_protocol.register_listener(listener),
+            AlbatrossSyncProtocol::MacroBlock(sync_protocol) => sync_protocol.register_listener(listener),
+        }
+    }
+
+    fn deregister_listener(&self) {
+        match self {
+            AlbatrossSyncProtocol::Full(sync_protocol) => sync_protocol.deregister_listener(),
+            AlbatrossSyncProtocol::MacroBlock(sync_protocol) => sync_protocol.deregister_listener(),
+        }
+    }
+}
