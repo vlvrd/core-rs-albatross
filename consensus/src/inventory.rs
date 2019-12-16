@@ -278,13 +278,13 @@ impl<P: ConsensusProtocol + 'static> InventoryAgent<P> {
 
     const SUBSCRIPTION_CHANGE_GRACE_PERIOD: Duration = Duration::from_secs(2);
 
-    pub fn new(blockchain: Arc<P::Blockchain>, mempool: Arc<Mempool<P::Blockchain>>, inv_mgr: Arc<RwLock<InventoryManager<P>>>, peer: Arc<Peer>, sync_agent: Arc<P::SyncProtocol>) -> Arc<Self> {
+    pub fn new(blockchain: Arc<P::Blockchain>, mempool: Arc<Mempool<P::Blockchain>>, inv_mgr: Arc<RwLock<InventoryManager<P>>>, peer: Arc<Peer>, sync_protocol: Arc<P::SyncProtocol>) -> Arc<Self> {
         let this = Arc::new(InventoryAgent {
             blockchain,
             mempool,
             peer,
             inv_mgr,
-            sync_protocol: sync_agent,
+            sync_protocol,
             state: RwLock::new(InventoryAgentState {
                 bypass_mgr: false,
                 known_objects: LimitHashSet::new(Self::KNOWN_OBJECTS_COUNT_MAX),

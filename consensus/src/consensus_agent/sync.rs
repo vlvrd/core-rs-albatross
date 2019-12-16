@@ -379,6 +379,7 @@ impl SyncProtocol<AlbatrossBlockchain> for AlbatrossSyncProtocol {
     type Config = AlbatrossSyncType;
 
     fn new(blockchain: Arc<AlbatrossBlockchain>, peer: Arc<Peer>, config: Self::Config) -> Arc<Self> {
+        debug!("AlbatrossSyncProtcol::new: {:?}", config);
         let sync_protocol = match config {
             AlbatrossSyncType::Full => AlbatrossSyncProtocol::Full(FullSync::new(blockchain, peer, ())),
             AlbatrossSyncType::MacroBlock => AlbatrossSyncProtocol::MacroBlock(MacroBlockSync::new(blockchain, peer, ())),
@@ -401,6 +402,7 @@ impl SyncProtocol<AlbatrossBlockchain> for AlbatrossSyncProtocol {
     }
 
     fn on_block(&self, block: AlbatrossBlock) {
+        debug!("AlbatrossSyncProtcol::on_block: #{}", block.height());
         match self {
             AlbatrossSyncProtocol::Full(sync_protocol) => sync_protocol.on_block(block),
             AlbatrossSyncProtocol::MacroBlock(sync_protocol) => sync_protocol.on_block(block),

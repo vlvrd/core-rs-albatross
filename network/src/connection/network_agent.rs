@@ -258,6 +258,8 @@ impl<B: AbstractBlockchain + 'static> NetworkAgent<B> {
 
         // Check if the peer is working on the same genesis block.
         let network_info = NetworkInfo::from_network_id(self.blockchain.network_id());
+        debug!("Our genesis hash: {}", network_info.genesis_hash());
+        debug!("Their genesis hash: {}", msg.genesis_hash);
         if *network_info.genesis_hash() != msg.genesis_hash {
             self.channel.close(CloseType::DifferentGenesisBlock);
             return;
