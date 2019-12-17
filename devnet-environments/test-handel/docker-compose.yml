@@ -17,6 +17,7 @@ services:
     env_file:
      - validator.env
     ports:
+     - "8443:8443"
      - "8648:8648"
      - "8649:8649"
      - "8650:8650"
