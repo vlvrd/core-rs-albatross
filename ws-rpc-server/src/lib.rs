@@ -13,6 +13,7 @@ use std::net::{IpAddr, SocketAddr};
 use std::sync::Arc;
 use std::collections::HashMap;
 use std::io::{Error as IoError, ErrorKind};
+use std::future::Future;
 
 use futures::{Future, Stream, IntoFuture};
 use futures::sink::Sink;
@@ -43,8 +44,8 @@ struct WsRpcConnection {
 }
 
 pub struct WsRpcServer {
-    future: WsRpcServerFuture,
     connections: WsRpcConnections,
+    listener: TcpListener,
 }
 
 impl WsRpcServer {
@@ -52,22 +53,33 @@ impl WsRpcServer {
 
     pub fn new(ip: IpAddr, port: u16) -> Result<Self, IoError>
     {
-        let socket = TcpListener::bind(&SocketAddr::new(ip, port))?;
-
+        let listener = TcpListener::bind(&SocketAddr::new(ip, port))?;
         let connections = Arc::new(RwLock::new(HashMap::new()));
-        let connections_tcp = Arc::clone(&connections);
 
+        Ok(Self {
+            connections,
+            listener,
+        })
+    }
+
+    pub async fn run(self) -> Result<(), IoError> {
         // Listen for incoming connections, do websocket handshake and put them in connections.
+        loop {
+            let stream = socket.accept().await?;
+
+            let address = stream.peer_addr().unwrap();
+            let connection_id = UniqueId::new();
+            // TODO: IP filter here
+            info!("Client connected: {}, id={}", address, connection_id);
+
+            let ws_stream = accept_async(stream).await?;
+
+
+        }
+
+
         let future = socket.incoming()
             .for_each(move |stream| {
-                let address = stream.peer_addr().unwrap();
-                let connection_id = UniqueId::new();
-                // TODO: IP filter here
-                info!("Client connected: {}, id={}", address, connection_id);
-
-                let connections_stream = Arc::clone(&connections_tcp);
-                let connections_err = Arc::clone(&connections_tcp);
-
                 accept_async(stream)
                     .and_then(move |ws_stream| {
                         // Split stream
