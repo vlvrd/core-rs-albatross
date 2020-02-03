@@ -9,6 +9,7 @@ use parking_lot::RwLock;
 use rand::seq::SliceRandom;
 use rand::thread_rng;
 
+use block_base::Block;
 use blockchain_base::{AbstractBlockchain, BlockchainEvent};
 use database::Environment;
 use macros::upgrade_weak;
@@ -245,6 +246,14 @@ impl<P: ConsensusProtocol> Consensus<P> {
         if state.established {
             for agent in state.agents.values() {
                 for &block in blocks.iter() {
+                    // XXX Eagerly clear transactions included in the block from the relay queues.
+                    let txs_opt = block.transactions();
+                    if let Some(txs) = txs_opt {
+                        for tx in txs {
+                            agent.remove_transaction(tx);
+                        }
+                    }
+
                     agent.relay_block(block);
                 }
             }
@@ -260,7 +269,7 @@ impl<P: ConsensusProtocol> Consensus<P> {
         }
 
         for agent in state.agents.values() {
-            agent.relay_transaction(transaction.as_ref());
+            //agent.relay_transaction(transaction.as_ref());
         }
     }
 
