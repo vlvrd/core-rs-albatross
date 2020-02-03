@@ -553,10 +553,11 @@ impl Validator {
         drop(state);
 
         let block = self.block_producer.next_micro_block(fork_proofs, timestamp, view_number, vec![], view_change_proof);
-        info!("Produced block #{}.{}: {} (took {}ms)",
+        info!("Produced block #{}.{} with {} transactions ({} in mempool) in {}ms",
               block.header.block_number,
               block.header.view_number,
-              block.header.hash::<Blake2bHash>(),
+              block.extrinsics.as_ref().map_or(0, |ex| ex.transactions.len()),
+              self.block_producer.mempool.as_ref().map_or(0, |mempool| mempool.num_transactions()),
               start.elapsed().as_millis());
 
         // Automatically relays block.

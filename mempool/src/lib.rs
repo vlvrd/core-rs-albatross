@@ -360,6 +360,10 @@ impl<B: AbstractBlockchain + 'static> Mempool<B> {
         self.blockchain.network_id()
     }
 
+    pub fn num_transactions(&self) -> usize {
+        self.state.read().transactions_by_hash.len()
+    }
+
     fn on_blockchain_event(&self, event: &BlockchainEvent<B::Block>) {
         match event {
             BlockchainEvent::Extended(_) | BlockchainEvent::Finalized(_) => {
