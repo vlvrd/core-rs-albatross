@@ -569,17 +569,25 @@ impl ValidatorNetwork {
             .register(weak_passthru_listener(Weak::clone(&self.self_weak), move |this, event| {
                 match event {
                     AggregationEvent::Complete { best } => {
-                        let event = if let Some(pbft) = this.state.write().get_pbft_state_mut(&key) {
+                        let events = if let Some(pbft) = this.state.write().get_pbft_state_mut(&key) {
                             trace!("Prepare complete. Signers: {}", best.signers);
 
-                            // Return the event
-                            Some(ValidatorNetworkEvent::PbftPrepareComplete(Box::new(pbft.block_hash.clone())))
+                            // Return the events
+                            let (prepare_votes, commit_votes) = pbft.aggregation.read().votes();
+                            vec![
+                                ValidatorNetworkEvent::PbftUpdate(Box::new(PbftUpdateEvent {
+                                    hash: pbft.block_hash.clone(),
+                                    prepare_votes,
+                                    commit_votes,
+                                })),
+                                ValidatorNetworkEvent::PbftPrepareComplete(Box::new(pbft.block_hash.clone())),
+                            ]
                         } else {
                             error!("No pBFT state");
-                            None
+                            vec![]
                         };
-                        // If we generated a prepare complete event, notify the validator
-                        if let Some(event) = event {
+                        // If we generated events, notify the validator
+                        for event in events {
                             this.notifier.read().notify(event)
                         }
                     }
@@ -593,7 +601,7 @@ impl ValidatorNetwork {
             .register(weak_passthru_listener(Weak::clone(&self.self_weak), move |this, event| {
                 match event {
                     AggregationEvent::Complete { best } => {
-                        let event = if let Some(pbft) = this.state.write().get_pbft_state_mut(&key) {
+                        let events = if let Some(pbft) = this.state.write().get_pbft_state_mut(&key) {
                             // Build commit proof
                             let commit_proof = AggregateProof::new(best.signature, best.signers);
                             trace!("Commit complete: {:?}", commit_proof);
@@ -606,18 +614,26 @@ impl ValidatorNetwork {
 
                             let pbft_proof = PbftProof { prepare: prepare_proof, commit: commit_proof };
 
-                            // Return the event
-                            Some(ValidatorNetworkEvent::PbftComplete(Box::new(PbftCompleteEvent {
-                                hash: pbft.block_hash.clone(),
-                                proposal: pbft.proposal.message.clone(),
-                                proof: pbft_proof,
-                            })))
+                            // Return the events
+                            let (prepare_votes, commit_votes) = pbft.aggregation.read().votes();
+                            vec![
+                                ValidatorNetworkEvent::PbftUpdate(Box::new(PbftUpdateEvent {
+                                    hash: pbft.block_hash.clone(),
+                                    prepare_votes,
+                                    commit_votes,
+                                })),
+                                ValidatorNetworkEvent::PbftComplete(Box::new(PbftCompleteEvent {
+                                    hash: pbft.block_hash.clone(),
+                                    proposal: pbft.proposal.message.clone(),
+                                    proof: pbft_proof,
+                                }))
+                            ]
                         } else {
                             error!("No pBFT state");
-                            None
+                            vec![]
                         };
-                        // If we generated a prepare complete event, notify the validator
-                        if let Some(event) = event {
+                        // If we generated events, notify the validator
+                        for event in events {
                             this.notifier.read().notify(event)
                         }
                     }
