@@ -369,7 +369,7 @@ pub struct BlockQueue<B: AbstractBlockchain> {
 
 impl<B: AbstractBlockchain> BlockQueue<B> {
     const BUFFER_MAX: usize = 64;
-    const WINDOW_MAX: u32 = 16;
+    const WINDOW_MAX: u32 = 24;
 
     pub fn new(blockchain: Arc<B>) -> Self {
         BlockQueue {
