@@ -368,13 +368,13 @@ impl Validator {
 
                 // Check if this view change is still relevant.
                 // Check if view change concerns an old block.
-                if view_change.block_number < current_block_number {
+                if view_change.block_number < current_block_number + 1 {
                     // We can ignore old view changes during block production.
                     // However, when the blockchain receives a block with this view change proof,
                     // it might need to rebranch.
                     trace!("Got view change proof for an old block at {} (current block {}).", view_change.block_number, current_block_number);
                     return;
-                } else if view_change.block_number == current_block_number { // Else, compare it with our current state.
+                } else if view_change.block_number == current_block_number + 1 { // Else, compare it with our current state.
                     if state.view_number < view_change.new_view_number {
                         // Reset view change interval again and increase the timeout linearly.
                         let num_view_changes = view_change.new_view_number - self.blockchain.next_view_number();
