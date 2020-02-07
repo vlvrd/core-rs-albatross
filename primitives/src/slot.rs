@@ -36,31 +36,31 @@
 ///!   * `SlotAddress` -> `StakerSlotBand`
 ///!   * `SlotAddresses` -> `StakerSlots`
 ///!
-
-
 extern crate nimiq_bls as bls;
 extern crate nimiq_keys as keys;
 extern crate nimiq_utils as utils;
 
 extern crate itertools;
 
-use std::slice::Iter;
-use std::vec::IntoIter;
-use std::iter::FromIterator;
 use std::collections::BTreeMap;
 use std::fmt;
+use std::iter::FromIterator;
+use std::slice::Iter;
+use std::vec::IntoIter;
 
-use bitvec::prelude::BitVec;
 use bitvec::cursor::BigEndian;
+use bitvec::prelude::BitVec;
 use itertools::Itertools;
 
-use beserial::{Deserialize, Serialize, ReadBytesExt, WriteBytesExt, SerializingError, SerializeWithLength, DeserializeWithLength, uvar};
-use bls::bls12_381::lazy::LazyPublicKey;
-use bls::bls12_381::CompressedPublicKey;
+use beserial::{
+    uvar, Deserialize, DeserializeWithLength, ReadBytesExt, Serialize, SerializeWithLength,
+    SerializingError, WriteBytesExt,
+};
+use bls::lazy::LazyPublicKey;
+use bls::CompressedPublicKey;
 use keys::Address;
 
 use crate::policy::SLOTS;
-
 
 /// Enum to index a slot.
 ///
@@ -73,7 +73,6 @@ pub enum SlotIndex {
     Slot(u16),
     Band(u16),
 }
-
 
 /// A slot that contains the corresponding validator and stake information.
 ///
@@ -138,7 +137,8 @@ impl Slots {
         let mut start_validator_slot_number = 0;
 
         for stake_slot in self.stake_slots.iter() {
-            let validator_slot = *validator_slots_iter.peek()
+            let validator_slot = *validator_slots_iter
+                .peek()
                 .expect("Expected validator slot");
 
             let slot = Slot {
@@ -148,7 +148,8 @@ impl Slots {
             combined.push((slot, start_stake_slot_number));
 
             let end_stake_slot_number = start_stake_slot_number + stake_slot.num_slots();
-            let end_validator_slot_number = start_validator_slot_number + validator_slot.num_slots();
+            let end_validator_slot_number =
+                start_validator_slot_number + validator_slot.num_slots();
 
             if end_stake_slot_number == end_validator_slot_number {
                 validator_slots_iter.next();
@@ -160,7 +161,6 @@ impl Slots {
         combined
     }
 }
-
 
 // Deprecated. Check where we really want this conversion
 #[deprecated]
@@ -221,7 +221,6 @@ pub trait SlotCollection {
     fn len(&self) -> usize;
 }
 
-
 /// Builder for slot collection. You can push individial slots into it and it'll compress them
 /// into a [ValidatorSlots] and [StakeSlots] collection.
 ///
@@ -240,10 +239,15 @@ impl SlotsBuilder {
     /// * `staker_address` - Address of staker
     /// * `reward_address` - Address where reward will be sent to
     ///
-    pub fn push<PK: Into<LazyPublicKey>>(&mut self, public_key: PK, staker_address: Address, reward_address_opt: Option<Address>) {
-        let stake_slots = self.validators.entry(public_key.into())
-            .or_default();
-        let num_slots = stake_slots.entry((staker_address, reward_address_opt))
+    pub fn push<PK: Into<LazyPublicKey>>(
+        &mut self,
+        public_key: PK,
+        staker_address: Address,
+        reward_address_opt: Option<Address>,
+    ) {
+        let stake_slots = self.validators.entry(public_key.into()).or_default();
+        let num_slots = stake_slots
+            .entry((staker_address, reward_address_opt))
             .or_default();
         *num_slots += 1;
     }
@@ -257,7 +261,11 @@ impl SlotsBuilder {
 
             for ((staker_address, reward_address_opt), stake_num_slots) in stakes {
                 // add stake slot band
-                stake_slots.push(StakeSlotBand::new(staker_address, reward_address_opt, stake_num_slots));
+                stake_slots.push(StakeSlotBand::new(
+                    staker_address,
+                    reward_address_opt,
+                    stake_num_slots,
+                ));
 
                 // this stake and the corresponding slots belong to the validator in the outer loop
                 validator_num_slots += stake_num_slots;
@@ -274,7 +282,6 @@ impl SlotsBuilder {
     }
 }
 
-
 /// A validator that owns some slots
 #[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord)]
 pub struct ValidatorSlotBand {
@@ -286,7 +293,7 @@ impl ValidatorSlotBand {
     pub fn new<PK: Into<LazyPublicKey>>(public_key: PK, num_slots: u16) -> Self {
         Self {
             public_key: public_key.into(),
-            num_slots
+            num_slots,
         }
     }
 
@@ -310,22 +317,22 @@ pub struct ValidatorSlots {
 impl ValidatorSlots {
     pub fn new(bands: Vec<ValidatorSlotBand>) -> Self {
         let index = SlotIndexTable::new(&bands);
-        Self {
-            bands,
-            index,
-        }
+        Self { bands, index }
     }
 
     pub fn get_public_key(&self, idx: SlotIndex) -> Option<&LazyPublicKey> {
         Some(&self.get(idx)?.public_key())
     }
 
-    pub fn find_idx_and_num_slots_by_public_key(&self, public_key: &CompressedPublicKey) -> Option<(u16, u16)> {
-        self.bands.iter()
+    pub fn find_idx_and_num_slots_by_public_key(
+        &self,
+        public_key: &CompressedPublicKey,
+    ) -> Option<(u16, u16)> {
+        self.bands
+            .iter()
             .find_position(|validator| validator.public_key.compressed() == public_key)
             .map(|(idx, validator)| (idx as u16, validator.num_slots))
     }
-    
     pub fn iter(&self) -> Iter<ValidatorSlotBand> {
         self.bands.iter()
     }
@@ -372,14 +379,12 @@ impl PartialEq for ValidatorSlots {
 
 impl Eq for ValidatorSlots {}
 
-
 impl Serialize for ValidatorSlots {
     fn serialize<W: WriteBytesExt>(&self, writer: &mut W) -> Result<usize, SerializingError> {
         let mut size = 0;
 
         // get slot allocation from collection
-        let allocation = SlotAllocation::from_iter(self.iter()
-            .map(|item| item.num_slots))?;
+        let allocation = SlotAllocation::from_iter(self.iter().map(|item| item.num_slots))?;
         size += Serialize::serialize(&allocation, writer)?;
 
         // serialize collection
@@ -414,7 +419,6 @@ impl Deserialize for ValidatorSlots {
     }
 }
 
-
 /// Occupation of a certain number of slots by an staker address (and reward address)
 #[derive(Clone, Debug, Eq, PartialEq, Hash)]
 pub struct StakeSlotBand {
@@ -424,7 +428,11 @@ pub struct StakeSlotBand {
 }
 
 impl StakeSlotBand {
-    pub fn new(staker_address: Address, mut reward_address_opt: Option<Address>, num_slots: u16) -> Self {
+    pub fn new(
+        staker_address: Address,
+        mut reward_address_opt: Option<Address>,
+        num_slots: u16,
+    ) -> Self {
         // Create canonical representation
         if Some(&staker_address) == reward_address_opt.as_ref() {
             reward_address_opt = None;
@@ -433,7 +441,7 @@ impl StakeSlotBand {
         Self {
             staker_address,
             reward_address_opt,
-            num_slots
+            num_slots,
         }
     }
 
@@ -442,7 +450,8 @@ impl StakeSlotBand {
     }
 
     pub fn reward_address(&self) -> &Address {
-        self.reward_address_opt.as_ref()
+        self.reward_address_opt
+            .as_ref()
             .unwrap_or(&self.staker_address)
     }
 }
@@ -464,7 +473,7 @@ impl StakeSlots {
         let index = SlotIndexTable::new(&slots);
         Self {
             bands: slots,
-            index
+            index,
         }
     }
 
@@ -527,8 +536,7 @@ impl Serialize for StakeSlots {
         let mut size = 0;
 
         // Get slot allocation from collection
-        let allocation = SlotAllocation::from_iter(self.iter()
-            .map(|item| item.num_slots))?;
+        let allocation = SlotAllocation::from_iter(self.iter().map(|item| item.num_slots))?;
         size += Serialize::serialize(&allocation, writer)?;
 
         // BitVec enconding which reward addresses are set
@@ -538,8 +546,8 @@ impl Serialize for StakeSlots {
         // it as as BitVec, so it only uses 1/8th of that.
         //
         // TODO: Replace with fixed-size BitVec
-        let reward_addresses: BitVec<BigEndian, u8> = BitVec::from_iter(self.iter()
-            .map(|item| item.reward_address_opt.is_some()));
+        let reward_addresses: BitVec<BigEndian, u8> =
+            BitVec::from_iter(self.iter().map(|item| item.reward_address_opt.is_some()));
         SerializeWithLength::serialize::<uvar, W>(&reward_addresses, writer)?;
 
         // Serialize collection
@@ -560,15 +568,18 @@ impl Serialize for StakeSlots {
 
         // Size of BitVec that encodes which reward addresses are custom
         // TODO: Replace with fixed-size BitVec
-        let reward_addresses: BitVec<BigEndian, u8> = BitVec::from_iter(self.iter()
-            .map(|item| item.reward_address_opt.is_some()));
+        let reward_addresses: BitVec<BigEndian, u8> =
+            BitVec::from_iter(self.iter().map(|item| item.reward_address_opt.is_some()));
         size += SerializeWithLength::serialized_size::<uvar>(&reward_addresses);
 
         for slot_address in self.iter() {
             size += Serialize::serialized_size(&slot_address.staker_address);
-            slot_address.reward_address_opt.as_ref().map(|reward_address| {
-                size += Serialize::serialized_size(&reward_address);
-            });
+            slot_address
+                .reward_address_opt
+                .as_ref()
+                .map(|reward_address| {
+                    size += Serialize::serialized_size(&reward_address);
+                });
         }
 
         size
@@ -595,15 +606,18 @@ impl Deserialize for StakeSlots {
                 let address = Deserialize::deserialize(reader)?;
                 if address == staker_address {
                     // This is an invalid encoding, as it needlessly bloats the block chain
-                    return Err(SerializingError::InvalidEncoding)
+                    return Err(SerializingError::InvalidEncoding);
                 }
                 Some(address)
-            }
-            else {
+            } else {
                 None
             };
 
-            slot_addresses.push(StakeSlotBand::new(staker_address, reward_address, num_slots));
+            slot_addresses.push(StakeSlotBand::new(
+                staker_address,
+                reward_address,
+                num_slots,
+            ));
         }
 
         // This invariant should always hold if SlotAllocation is implemented correctly
@@ -612,7 +626,6 @@ impl Deserialize for StakeSlots {
         Ok(Self::from_iter(slot_addresses))
     }
 }
-
 
 /// Mapping from slot number to [SlotBand].
 ///
@@ -625,7 +638,7 @@ impl Deserialize for StakeSlots {
 ///
 #[derive(Clone)]
 struct SlotIndexTable {
-    index: Vec<u16>
+    index: Vec<u16>,
 }
 
 impl SlotIndexTable {
@@ -633,16 +646,14 @@ impl SlotIndexTable {
         let mut index = Vec::with_capacity(SLOTS as usize);
 
         for (i, band) in bands.iter().enumerate() {
-            for _ in 0 .. band.num_slots() {
+            for _ in 0..band.num_slots() {
                 index.push(i as u16);
             }
         }
 
         assert_eq!(index.len(), SLOTS as usize);
 
-        Self {
-            index,
-        }
+        Self { index }
     }
 
     pub fn get(&self, slot_number: u16) -> Option<u16> {
@@ -652,9 +663,7 @@ impl SlotIndexTable {
 
 impl Default for SlotIndexTable {
     fn default() -> Self {
-        Self {
-            index: vec![]
-        }
+        Self { index: vec![] }
     }
 }
 
@@ -663,7 +672,6 @@ impl fmt::Debug for SlotIndexTable {
         write!(f, "SlotIndexTable {{ ... }}")
     }
 }
-
 
 /// A compressed representation of repeated objects. This is used to encode the slot allocation
 /// of something that is a `NumSlotsCollection`
@@ -675,7 +683,7 @@ impl SlotAllocation {
     /// Size in bytes - number of slots divided by 8 and rounded up.
     const SIZE: usize = ((SLOTS as usize) + 8 - 1) / 8;
 
-    pub fn from_iter<I: Iterator<Item=u16>>(iter: I) -> Result<Self, SerializingError> {
+    pub fn from_iter<I: Iterator<Item = u16>>(iter: I) -> Result<Self, SerializingError> {
         let mut bits = BitVec::with_capacity(SLOTS as usize);
         bits.resize(SLOTS as usize, false);
 
@@ -710,8 +718,7 @@ impl SlotAllocation {
                 num_slots.push(count);
                 total += count;
                 count = 1;
-            }
-            else {
+            } else {
                 count += 1;
             }
         }

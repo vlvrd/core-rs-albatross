@@ -1,13 +1,13 @@
 use beserial::{Deserialize, ReadBytesExt, Serialize};
-use bls::bls12_381::{CompressedPublicKey as BlsPublicKey, CompressedSignature as BlsSignature};
+use bls::{CompressedPublicKey as BlsPublicKey, CompressedSignature as BlsSignature};
 use keys::Address;
 use primitives::account::AccountType;
 use primitives::coin::Coin;
 use primitives::policy;
 
-use crate::{Transaction, TransactionError, TransactionFlags};
 use crate::account::AccountTransactionVerification;
 use crate::SignatureProof;
+use crate::{Transaction, TransactionError, TransactionFlags};
 
 pub struct StakingContractVerifier {}
 
@@ -15,7 +15,10 @@ impl AccountTransactionVerification for StakingContractVerifier {
     fn verify_incoming_transaction(transaction: &Transaction) -> Result<(), TransactionError> {
         assert_eq!(transaction.recipient_type, AccountType::Staking);
 
-        if transaction.flags.contains(TransactionFlags::CONTRACT_CREATION) {
+        if transaction
+            .flags
+            .contains(TransactionFlags::CONTRACT_CREATION)
+        {
             warn!("Contract creation not allowed");
             return Err(TransactionError::InvalidForRecipient);
         }
@@ -37,7 +40,8 @@ impl AccountTransactionVerification for StakingContractVerifier {
         assert_eq!(transaction.sender_type, AccountType::Staking);
 
         // Verify signature.
-        let signature_proof: SignatureProof = Deserialize::deserialize(&mut &transaction.proof[..])?;
+        let signature_proof: SignatureProof =
+            Deserialize::deserialize(&mut &transaction.proof[..])?;
         if !signature_proof.verify(transaction.serialize_content().as_slice()) {
             warn!("Invalid signature");
             return Err(TransactionError::InvalidProof);
@@ -80,10 +84,19 @@ impl StakingTransactionData {
     /// public keys `pk_B + (pk_A - pk_B) = pk_B`.
     /// Alternatives would be to replace the proof of knowledge by a zero-knowledge proof.
     pub fn verify(&self) -> Result<(), TransactionError> {
-        if !self.validator_key.uncompress().map_err(|_| TransactionError::InvalidData)?
-            .verify(&self.validator_key,
-                    &self.proof_of_knowledge.uncompress().map_err(|_| TransactionError::InvalidData)?) {
-            return Err(TransactionError::InvalidData)
+        if !self
+            .validator_key
+            .uncompress()
+            .map_err(|_| TransactionError::InvalidData)?
+            .verify(
+                &self.validator_key,
+                &self
+                    .proof_of_knowledge
+                    .uncompress()
+                    .map_err(|_| TransactionError::InvalidData)?,
+            )
+        {
+            return Err(TransactionError::InvalidData);
         }
         Ok(())
     }

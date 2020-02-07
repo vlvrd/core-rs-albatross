@@ -3,17 +3,17 @@ use std::str::FromStr;
 
 use beserial::Deserialize;
 use nimiq_block_albatross::{MacroBlock, MacroExtrinsics, MacroHeader};
-use nimiq_bls::bls12_381::{Signature, CompressedPublicKey};
+use nimiq_bls::{CompressedPublicKey, Signature};
 use nimiq_collections::bitset::BitSet;
 use nimiq_hash::{Blake2bHasher, Hasher};
 use nimiq_keys::Address;
-use nimiq_primitives::slot::{Slots, StakeSlots, StakeSlotBand, ValidatorSlots, ValidatorSlotBand};
+use nimiq_primitives::slot::{Slots, StakeSlotBand, StakeSlots, ValidatorSlotBand, ValidatorSlots};
 
 #[test]
 fn it_can_convert_macro_block_into_slots() {
     let hash = Blake2bHasher::default().digest(&vec![]);
 
-    let signature_bytes = hex::decode("b9674ac1bbb4770ad291acc2b860e9120c609893a3840fbfdf2946911f00255f8995974c9b0ef3835ab4442ccbac9739").unwrap();
+    let signature_bytes = hex::decode("f904bcf10344b646be315f744cc948be4964f797fb0286b49e53346e3a7afce18e2a487226c7bd6a47ed3a707f4b6341").unwrap();
     let signature = Signature::deserialize_from_vec(&signature_bytes).unwrap();
 
     let slot_allocation = vec![
@@ -22,7 +22,8 @@ fn it_can_convert_macro_block_into_slots() {
         (126u16, "accc156ac10d2d1cc7fc0c565acea9295e2d258608f280c076b4679c5a465fb9fcd8f22c6f9179cd8f7d63aaa04b9d3a088b1f3764cb93c67dc3a21c94666f5b729fa9f058ad65eb023aeaaaa2c39112bac4c613374d82a0e3407df4595d1535"),
         (130u16, "abdaf5ac13036550362c2d3c5f1848fd6ab1898c75311381bd022d6a2a7909d526ad7a6aaafbaf8f64f11a3af5f220fa0a150b022394ff5da765016b7e6a2525fbe63c65b2e382989de3ecb04038e24c9f782e7965c2b3ec179c7715ecf7f191"),
     ];
-    let validator_slots: ValidatorSlots = slot_allocation.into_iter()
+    let validator_slots: ValidatorSlots = slot_allocation
+        .into_iter()
         .map(|(num_slots, pubkey_str)| {
             let pubkey = CompressedPublicKey::from_str(pubkey_str).unwrap();
             ValidatorSlotBand::new(pubkey, num_slots)
@@ -35,10 +36,10 @@ fn it_can_convert_macro_block_into_slots() {
         (129u16, "6a15f2277cce1bde7e265c84d2a727653b31884c"),
         (130u16, "31020442803a81db35ac5f67f29d87924a0eaf76"),
     ];
-    let stake_slots: StakeSlots = address_allocation.into_iter()
+    let stake_slots: StakeSlots = address_allocation
+        .into_iter()
         .map(|(num, address)| StakeSlotBand::new(Address::from(address), None, num))
         .collect();
-
 
     let macro_block = MacroBlock {
         header: MacroHeader {
