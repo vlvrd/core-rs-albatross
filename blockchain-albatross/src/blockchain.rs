@@ -504,7 +504,7 @@ impl Blockchain {
                 chain_order = ChainOrdering::Better;
             }
 
-            info!("New block is on {:?} chain with fork at #{} (current #{}.{}, new block #{}.{})", chain_order, current_height - 1, block.block_number(), block.view_number(), self.head_height(), self.view_number());
+            info!("New block is on {:?} chain with fork at #{} (current #{}.{}, new block #{}.{})", chain_order, current_height - 1, self.head_height(), self.view_number(), block.block_number(), block.view_number());
         }
 
         chain_order
