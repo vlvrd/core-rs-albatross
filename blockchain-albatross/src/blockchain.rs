@@ -688,7 +688,7 @@ impl Blockchain {
         }
 
         // Commit block to AccountsTree.
-        if let Err(e) = self.commit_accounts(&state, &mut txn, &chain_info.head) {
+        if let Err(e) = self.commit_accounts(&state, prev_info.head.next_view_number(), &mut txn, &chain_info.head) {
             warn!("Rejecting block - commit failed: {:?}", e);
             txn.abort();
             #[cfg(feature = "metrics")]
@@ -846,7 +846,7 @@ impl Blockchain {
                     let result = if !cache_txn.contains_any(&fork_block.1.head) {
                         state.reward_registry.commit_block(&mut write_txn, &fork_block.1.head, prev_view_number)
                             .map_err(|_| PushError::InvalidBlock(BlockError::InvalidSlash))
-                            .and_then(|_| self.commit_accounts(&state, &mut write_txn, &fork_block.1.head))
+                            .and_then(|_| self.commit_accounts(&state, prev_view_number, &mut write_txn, &fork_block.1.head))
 
                     } else {
                         Err(PushError::DuplicateTransaction)
@@ -930,17 +930,16 @@ impl Blockchain {
         Ok(PushResult::Rebranched)
     }
 
-    fn commit_accounts(&self, state: &BlockchainState, txn: &mut WriteTransaction, block: &Block) -> Result<(), PushError> {
+    fn commit_accounts(&self, state: &BlockchainState, first_view_number: u32, txn: &mut WriteTransaction, block: &Block) -> Result<(), PushError> {
         let accounts = &state.accounts;
-
-        let staking_contract_before = accounts.get(&Address::from_user_friendly_address("NQ30 EDDQ 9C99 S6P5 KFEH SSUQ 968M RN5V 7MGA").unwrap(), Some(&txn));
 
         match block {
             Block::Macro(ref macro_block) => {
+                // We can rely on `state` here, since we cannot revert macro blocks.
                 let mut inherents = self.finalize_last_epoch(state, &macro_block.header);
 
                 // Add slashes for view changes.
-                let view_changes = ViewChanges::new(macro_block.header.block_number, state.main_chain.head.next_view_number(), macro_block.header.view_number);
+                let view_changes = ViewChanges::new(macro_block.header.block_number, first_view_number, macro_block.header.view_number);
                 inherents.append(&mut self.create_slash_inherents(&[], &view_changes, Some(txn)));
 
                 // Commit block to AccountsTree.
@@ -952,7 +951,7 @@ impl Blockchain {
             },
             Block::Micro(ref micro_block) => {
                 let extrinsics = micro_block.extrinsics.as_ref().unwrap();
-                let view_changes = ViewChanges::new(micro_block.header.block_number, state.main_chain.head.next_view_number(), micro_block.header.view_number);
+                let view_changes = ViewChanges::new(micro_block.header.block_number, first_view_number, micro_block.header.view_number);
                 let inherents = self.create_slash_inherents(&extrinsics.fork_proofs, &view_changes, Some(txn));
 
                 // Commit block to AccountsTree.
@@ -969,12 +968,7 @@ impl Blockchain {
 
         // Verify accounts hash.
         let accounts_hash = accounts.hash(Some(&txn));
-        let staking_contract_after= accounts.get(&Address::from_user_friendly_address("NQ30 EDDQ 9C99 S6P5 KFEH SSUQ 968M RN5V 7MGA").unwrap(), Some(&txn));
         if block.state_root() != &accounts_hash {
-            debug!("Block state root: {}", block.state_root());
-            debug!("Accounts hash:    {}", accounts_hash);
-            debug!("Staking Contact before: {:#?}", staking_contract_before);
-            debug!("Staking Contact after: {:#?}", staking_contract_after);
             return Err(PushError::InvalidBlock(BlockError::AccountsHashMismatch));
         }
 
