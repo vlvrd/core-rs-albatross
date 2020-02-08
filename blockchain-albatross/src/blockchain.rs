@@ -435,7 +435,7 @@ impl Blockchain {
     }
 
     /// Calculate chain ordering.
-    fn order_chains(&self, block: &Block, prev_info: &ChainInfo) -> ChainOrdering {
+    fn order_chains(&self, block: &Block, prev_info: &ChainInfo, txn_option: Option<&Transaction>) -> ChainOrdering {
         let mut chain_order = ChainOrdering::Unknown;
         if block.parent_hash() == &self.head_hash() {
             chain_order = ChainOrdering::Extend;
@@ -459,7 +459,7 @@ impl Blockchain {
 
                 let prev_hash = prev.1.head.parent_hash().clone();
                 let prev_info = self.chain_store
-                    .get_chain_info(&prev_hash, false, None)
+                    .get_chain_info(&prev_hash, false, txn_option)
                     .expect("Corrupted store: Failed to find fork predecessor while rebranching");
 
                 current = prev;
@@ -481,7 +481,8 @@ impl Blockchain {
                 // Take corresponding view number from branch.
                 let branch_view_number = view_numbers.pop().unwrap();
                 // And calculate equivalent on main chain.
-                let current_on_main_chain = self.get_block_at(h, false)
+                let current_on_main_chain = self.chain_store
+                    .get_block_at(h, false, txn_option)
                     .expect("Corrupted store: Failed to find main chain equivalent of fork");
 
                 // Choose better one as early as possible.
@@ -548,7 +549,7 @@ impl Blockchain {
         // we can always identify the inferior branch.
         // This is also the reason why fork proofs do not change the slashed set for validator selection.
         // Here, we identify inferior branches early on and discard them.
-        let chain_order = self.order_chains(&block, &prev_info);
+        let chain_order = self.order_chains(&block, &prev_info, Some(&read_txn));
         if chain_order == ChainOrdering::Inferior {
             // If it is an inferior chain, we ignore it as it cannot become better at any point in time.
             info!("Ignoring block - inferior chain (#{}, {})", block.block_number(), hash);
