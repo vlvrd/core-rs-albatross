@@ -200,6 +200,7 @@ impl WebSocketConnector {
 
         if !self.network_config.protocol_mask().contains(ProtocolFlags::from(peer_address.protocol())) {
             notifier.read().notify(WebSocketConnectorEvent::Error(Arc::clone(&peer_address), ConnectError::ProtocolMismatch));
+            return Err(ConnectError::ProtocolMismatch);
         }
 
         // NOTE: We're not checking if we are already connecting to a peer here because
