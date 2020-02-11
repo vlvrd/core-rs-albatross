@@ -88,7 +88,7 @@ impl<B: AbstractBlockchain> Network<B> {
             backoff: Atomic::new(Self::CONNECT_BACKOFF_INITIAL),
             addresses: addresses.clone(),
             connections: connections.clone(),
-            scorer: Arc::new(RwLock::new(PeerScorer::new(net_config, addresses, connections.clone()))),
+            scorer: Arc::new(RwLock::new(PeerScorer::new(net_config, addresses, connections))),
             timers: Timers::new(),
             notifier: RwLock::new(Notifier::new()),
             self_weak: MutableOnce::new(Weak::new()),

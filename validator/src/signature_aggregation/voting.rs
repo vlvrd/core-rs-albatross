@@ -89,7 +89,7 @@ impl IdentityRegistry for ValidatorRegistry {
     fn public_key(&self, id: usize) -> Option<PublicKey> {
         self.validators.read().get_public_key(id)
             .and_then(|pubkey| pubkey.uncompress()
-                .map(|c| c.clone()))
+                .map(|c| c.to_owned()))
     }
 }
 

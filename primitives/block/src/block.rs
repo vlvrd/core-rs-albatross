@@ -1,5 +1,4 @@
 use account::inherent::Inherent;
-use block_base;
 use beserial::{Deserialize, ReadBytesExt, Serialize, SerializingError};
 use hash::{Argon2dHash, Blake2bHash, Hash};
 use primitives::networks::NetworkId;

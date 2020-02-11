@@ -229,14 +229,10 @@ impl<S> FixedUnsigned<S>
         // NOTE: `string.len() - 1` is the number of digits. One is being subtracted for the decimal point
         let scale = decimal_place.map(|p| string.len() - p - 1).unwrap_or(0) as u64;
         // scale the unscaled `int_value` to the correct scale
-        let int_value = if scale < S::SCALE {
-            Self::scale_up(int_value, S::SCALE - scale)
-        }
-        else if scale > S::SCALE {
-            Self::scale_down::<RoundDown>(int_value, scale - S::SCALE)
-        }
-        else {
-            int_value
+        let int_value = match scale.cmp(&S::SCALE) {
+            Ordering::Less => Self::scale_up(int_value, S::SCALE - scale),
+            Ordering::Greater => Self::scale_down::<RoundDown>(int_value, scale - S::SCALE),
+            Ordering::Equal => int_value,
         };
         Ok(Self::new(int_value))
     }
@@ -282,7 +278,7 @@ impl<S> FixedUnsigned<S>
     /// Multiplies two `BigUint`s interpreted as `FixedUnsigned<S>` and returns the result.
     #[inline]
     fn mul(a: &BigUint, b: &BigUint) -> BigUint {
-        Self::scale_down::<RoundHalfUp>((a * b).clone(), S::SCALE)
+        Self::scale_down::<RoundHalfUp>(a * b, S::SCALE)
     }
 
     /// Divides two `BigUint`s interpreted as `FixedUnsigned<S>` and returns the result.

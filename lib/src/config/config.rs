@@ -716,8 +716,7 @@ impl ClientConfigBuilder {
             config_file::Protocol::Dumb => ProtocolConfig::Dumb,
             config_file::Protocol::Ws => ProtocolConfig::Ws {
                 host: config_file.network.host.clone()
-                    .ok_or_else(|| Error::config_error("Hostname not set."))?
-                    .clone(),
+                    .ok_or_else(|| Error::config_error("Hostname not set."))?,
                 port: config_file.network.port.clone()
                     .unwrap_or(consts::WS_DEFAULT_PORT),
             },
@@ -751,29 +750,26 @@ impl ClientConfigBuilder {
 
         // Configure storage config.
         let mut file_storage = FileStorageConfig::default();
-        config_file.database.path.as_ref()
-            .map(|path| {
-                file_storage.database_parent = PathBuf::from(path);
-            });
-        config_file.peer_key_file.as_ref()
-            .map(|path| {
-                file_storage.peer_key = PathBuf::from(path);
-            });
-        config_file.validator.as_ref()
-            .map(|validator_config| {
-                validator_config.key_file.as_ref()
-                    .map(|key_path| file_storage.validator_key = Some(PathBuf::from(key_path)));
-            });
+        if let Some(ref path) = config_file.database.path {
+            file_storage.database_parent = PathBuf::from(path);
+        }
+        if let Some(ref path) = config_file.peer_key_file {
+            file_storage.peer_key = PathBuf::from(path);
+        }
+        if let Some(ref validator_config ) = config_file.validator {
+            if let Some(ref key_path) = validator_config.key_file {
+                file_storage.validator_key = Some(PathBuf::from(key_path));
+            }
+        }
         self.storage = Some(file_storage.into());
 
         // Configure database
         self.database(config_file.database.clone());
 
         // Configure reverse proxy config
-        config_file.reverse_proxy.as_ref()
-            .map(|reverse_proxy| {
-                self.reverse_proxy = Some(Some(reverse_proxy.clone().into()));
-            });
+        if let Some(ref reverse_proxy) = config_file.reverse_proxy {
+            self.reverse_proxy = Some(Some(reverse_proxy.clone().into()));
+        }
 
         // Configure RPC server
         #[cfg(feature="rpc-server")] {
@@ -872,22 +868,22 @@ impl ClientConfigBuilder {
     /// Applies settings from the command line
     pub fn command_line(&mut self, command_line: &CommandLine) -> Result<&mut Self, Error> {
         // Set hostname for Ws or Wss protocol
-        command_line.hostname.clone().map(|hostname| {
+        if let Some(hostname) = command_line.hostname.clone() {
             match &mut self.protocol {
                 Some(ProtocolConfig::Ws { host, .. }) => *host = hostname,
                 Some(ProtocolConfig::Wss { host, .. }) => *host = hostname,
                 _ => {} // just ignore this. or return an error?
             }
-        });
+        }
 
         // Set port for Ws or Wss protocol
-        command_line.port.map(|new_port| {
+        if let Some(new_port) = command_line.port {
             match &mut self.protocol {
                 Some(ProtocolConfig::Ws { port, .. }) => *port = new_port,
                 Some(ProtocolConfig::Wss { port, .. }) => *port = new_port,
                 _ => () // just ignore this. or return an error?
             }
-        });
+        }
 
         // Set consensus type
         command_line.consensus_type.map(|consensus| self.consensus(consensus));

@@ -270,14 +270,14 @@ impl ValidatorAgent {
         self.peer.peer_address().peer_id.clone()
     }
 
-    pub fn send_validator_infos(&self, infos: &Vec<SignedValidatorInfo>) {
+    pub fn send_validator_infos(&self, infos: &[SignedValidatorInfo]) {
         let mut state = self.state.write();
 
         let num_infos = infos.len(); // DEBUGGING
 
         let unknown_infos = infos.iter()
             .filter(|info| !state.known_validators.contains(&info.message.public_key))
-            .map(|info| info.clone())
+            .cloned()
             .collect::<Vec<SignedValidatorInfo>>();
 
         // early return, if there are no unknown

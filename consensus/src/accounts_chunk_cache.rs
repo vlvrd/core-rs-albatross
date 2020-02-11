@@ -131,7 +131,7 @@ impl<B: AbstractBlockchain + 'static> AccountsChunkCache<B> {
             trace!("Computing {} chunks for block {} tree took {:?}", num_chunks, hash, chunk_start.elapsed());
 
             // Put those blocks that are cached into a history, so that we can remove them later on.
-            this.block_history_order.write().push_back(hash.clone());
+            this.block_history_order.write().push_back(hash);
 
             // Remove old chunks after some time.
             if this.block_history_order.read().len() > Self::MAX_BLOCKS_BACKLOG {

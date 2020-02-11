@@ -1,7 +1,7 @@
 use std::collections::HashMap;
 use std::ops::Mul;
 use std::sync::{Arc, Weak};
-use std::time::{Duration, Instant};
+use std::time::Duration;
 
 use parking_lot::RwLock;
 
@@ -101,7 +101,7 @@ impl Validator {
         let compressed_public_key = validator_key.public.compress();
         let info = ValidatorInfo {
             public_key: compressed_public_key,
-            peer_address: consensus.network.network_config.peer_address().clone(),
+            peer_address: consensus.network.network_config.peer_address(),
             udp_address: None,
             valid_from: consensus.blockchain.block_number(),
         };

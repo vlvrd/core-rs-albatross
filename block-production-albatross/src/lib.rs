@@ -18,7 +18,6 @@ use block::{Block, MacroBlock, MacroExtrinsics, MacroHeader, MicroBlock, MicroEx
 use block::ForkProof;
 use block::MicroJustification;
 use blockchain::blockchain::Blockchain;
-use blockchain_base::AbstractBlockchain;
 use bls::bls12_381::KeyPair;
 use database::WriteTransaction;
 use hash::{Blake2bHash, Hash};
@@ -164,9 +163,7 @@ impl BlockProducer {
         let transactions_root = self.blockchain.get_transactions_root(policy::epoch_at(block_number), Some(txn))
             .expect("Failed to compute transactions root, micro blocks missing");
 
-        let validators = self.blockchain.next_validators(seed, Some(txn));
-
-        header.validators = validators.into();
+        header.validators = self.blockchain.next_validators(seed, Some(txn));
         header.state_root = state_root;
         header.transactions_root = transactions_root;
 

@@ -2,7 +2,6 @@ use std::collections::HashMap;
 use std::str::FromStr;
 use std::sync::Arc;
 
-use hex;
 use json::{JsonValue, Null, object};
 use parking_lot::RwLock;
 

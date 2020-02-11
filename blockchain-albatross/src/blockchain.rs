@@ -298,7 +298,7 @@ impl Blockchain {
                 head_hash: head_hash.clone(),
                 macro_head: genesis_macro_block.clone(),
                 macro_head_hash: head_hash,
-                current_slots: Some(current_slots.clone()),
+                current_slots: Some(current_slots),
                 previous_slots: Some(last_slots),
             }),
             push_lock: Mutex::new(()),
@@ -343,7 +343,7 @@ impl Blockchain {
         }
         else {
             self.get_block_at(policy::macro_block_of(epoch), true)?
-                .unwrap_macro().header.validators.into()
+                .unwrap_macro().header.validators
         };
 
         Some(validators)
@@ -675,11 +675,12 @@ impl Blockchain {
         }
 
         // Get the slashed set used to finalize the previous epoch before garbage collecting it below.
-        let mut slashed_set: Option<BitSet> = None;
-        if chain_info.head.ty() == BlockType::Macro {
+        let slashed_set = if chain_info.head.ty() == BlockType::Macro {
             // Get whole slashed set here.
-            slashed_set = Some(state.reward_registry.slashed_set(policy::epoch_at(chain_info.head.block_number()) - 1, SlashedSetSelector::All, Some(&txn)));
-        }
+            Some(state.reward_registry.slashed_set(policy::epoch_at(chain_info.head.block_number()) - 1, SlashedSetSelector::All, Some(&txn)))
+        } else {
+            None
+        };
 
         if let Err(e) = state.reward_registry.commit_block(&mut txn, &chain_info.head, prev_info.head.next_view_number()) {
             warn!("Rejecting block - slash commit failed: {:?}", e);
@@ -1054,7 +1055,7 @@ impl Blockchain {
                 return Err(PushError::InvalidBlock(BlockError::NoJustification));
             },
             Some(ref justification) => {
-                if let Err(_) = justification.verify(macro_block.hash(),&self.current_validators(), policy::TWO_THIRD_SLOTS) {
+                if justification.verify(macro_block.hash(),&self.current_validators(), policy::TWO_THIRD_SLOTS).is_err() {
                     warn!("Rejecting block - macro block with bad justification");
                     return Err(PushError::InvalidBlock(BlockError::NoJustification));
                 }

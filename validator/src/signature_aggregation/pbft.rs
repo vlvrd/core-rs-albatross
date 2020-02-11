@@ -72,7 +72,7 @@ impl PbftCommitEvaluator {
         let store = self.prepare_aggregation.protocol.store();
         let store = store.read();
         store.combined(store.best_level())
-            .map(|signature| signature.signers.clone())
+            .map(|signature| signature.signers)
             .unwrap_or_default()
     }
 }
@@ -198,7 +198,7 @@ impl PbftAggregation {
 
         // create prepare aggregation
         let prepare_protocol = PbftPrepareProtocol::new(
-            PbftPrepareMessage::from(proposal_hash.clone()),
+            PbftPrepareMessage::from(proposal_hash),
             node_id,
             validators,
         );

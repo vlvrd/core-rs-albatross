@@ -566,9 +566,9 @@ impl Serialize for StakeSlots {
 
         for slot_address in self.iter() {
             size += Serialize::serialized_size(&slot_address.staker_address);
-            slot_address.reward_address_opt.as_ref().map(|reward_address| {
+            if let Some(ref reward_address) = slot_address.reward_address_opt {
                 size += Serialize::serialized_size(&reward_address);
-            });
+            }
         }
 
         size
@@ -629,7 +629,7 @@ struct SlotIndexTable {
 }
 
 impl SlotIndexTable {
-    pub fn new<B: SlotBand>(bands: &Vec<B>) -> Self {
+    pub fn new<B: SlotBand>(bands: &[B]) -> Self {
         let mut index = Vec::with_capacity(SLOTS as usize);
 
         for (i, band) in bands.iter().enumerate() {
@@ -747,8 +747,7 @@ impl Serialize for SlotAllocation {
 impl Deserialize for SlotAllocation {
     fn deserialize<R: ReadBytesExt>(reader: &mut R) -> Result<Self, SerializingError> {
         // Allocate buffer for BitVec
-        let mut buf = Vec::with_capacity(Self::SIZE);
-        buf.resize(Self::SIZE, 0_u8);
+        let mut buf = vec![0u8; Self::SIZE];
 
         // Read and create BitVec
         reader.read_exact(buf.as_mut_slice())?;

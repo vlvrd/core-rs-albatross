@@ -1,7 +1,6 @@
 use std::fmt;
 
 use beserial::{Deserialize, ReadBytesExt, Serialize, SerializingError, WriteBytesExt};
-use block_base;
 use hash::{Blake2bHash, Hash, SerializeContent};
 use hash_derive::SerializeContent;
 use primitives::networks::NetworkId;

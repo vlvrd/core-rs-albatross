@@ -1,7 +1,6 @@
 use std::io;
 
 use beserial::{Deserialize, Serialize};
-use block_base;
 use hash::{Argon2dHash, Blake2bHash, Hash, SerializeContent};
 
 use crate::{Target, TargetCompact};

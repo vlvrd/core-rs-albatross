@@ -337,7 +337,6 @@ impl SyncProtocol<AlbatrossBlockchain> for MacroBlockSync {
             Err(e) => {
                 warn!("We received an invalid merkle proof ({:?}) from {} - discarding and closing the channel", e, self.peer.peer_address());
                 self.peer.channel.close(CloseType::InvalidEpochTransactions);
-                return;
             },
         }
     }

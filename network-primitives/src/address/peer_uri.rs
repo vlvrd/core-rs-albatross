@@ -158,7 +158,7 @@ impl PeerUri {
                     },
                     _ => Some(Err(PeerUriError::TooManyPathSegments))
                 }
-            }).transpose()?.clone();
+            }).transpose()?;
 
         // Take appropriate parts of URI to construct the PeerUri
         match protocol {

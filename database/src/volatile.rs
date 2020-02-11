@@ -84,7 +84,7 @@ impl VolatileEnvironment {
 pub struct VolatileDatabase(LmdbDatabase);
 
 impl VolatileDatabase {
-    pub(in super) fn as_lmdb<'a>(&'a self) -> &'a LmdbDatabase { &self.0 }
+    pub(in super) fn as_lmdb(&self) -> &LmdbDatabase { &self.0 }
 }
 
 

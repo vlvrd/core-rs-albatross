@@ -29,7 +29,7 @@ impl Coin {
 
     // NOTE: We implement a trait that does this, but we don't always want to have to import
     // a whole create to check if a coin value is zero.
-    pub fn is_zero(&self) -> bool {
+    pub fn is_zero(self) -> bool {
         self.0 == 0
     }
 

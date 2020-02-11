@@ -344,7 +344,7 @@ impl BlockchainAlbatrossHandler {
 
                 let justification = block.justification.as_ref()
                     .map(|pbft_proof| {
-                        let validators = block.header.validators.clone().into();
+                        let validators = block.header.validators.clone();
                         object!{
                             "votes" => pbft_proof.votes(&validators)
                                 .map(JsonValue::from).unwrap_or(JsonValue::Null),
@@ -364,7 +364,7 @@ impl BlockchainAlbatrossHandler {
 
                 object! {
                     "type" => "macro",
-                    "hash" => hash.clone(),
+                    "hash" => hash,
                     "blockNumber" => block.header.block_number,
                     "viewNumber" => block.header.view_number,
                     "epoch" => policy::epoch_at(block.header.block_number),

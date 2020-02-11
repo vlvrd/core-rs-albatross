@@ -548,7 +548,7 @@ impl<B: AbstractBlockchain + 'static> Mempool<B> {
         let txs_by_sender = state.transactions_by_sender
             .entry(tx.sender.clone()) // XXX Get rid of the .clone() here
             .or_insert_with(BTreeSet::new);
-        txs_by_sender.insert(tx.clone());
+        txs_by_sender.insert(tx);
     }
 
     fn remove_transaction(state: &mut MempoolState, tx: &Transaction) {

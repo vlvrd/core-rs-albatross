@@ -4,7 +4,6 @@ use std::fmt;
 use std::str::FromStr;
 
 use hex::FromHex;
-use ed25519_dalek;
 
 use beserial::{Deserialize, ReadBytesExt, Serialize, SerializingError, WriteBytesExt};
 

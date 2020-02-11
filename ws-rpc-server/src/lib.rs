@@ -85,7 +85,7 @@ impl WsRpcServer {
                 let (sink, mut stream) = ws_stream.split();
                 // Create MPSC channel
                 let (tx, rx) = channel::<Message>(Self::QUEUE_SIZE);
-                let try_rx = rx.map(|x| Ok::<_, WsError>(x));
+                let try_rx = rx.map(Ok::<_, WsError>);
                 // Send everything from the MSPC channel
                 let send_future = try_rx.forward(sink);
                 // Receive messages (and ignore them)
@@ -186,11 +186,11 @@ impl WsRpcServer {
                 let (old_head, _) = reverted.last()?;
                 let (new_head, _) = rebranched.last()?;
 
-                let reverted = JsonValue::Array(reverted.into_iter()
+                let reverted = JsonValue::Array(reverted.iter()
                     .map(|(block_hash, _)|  JsonValue::String(block_hash.to_string()))
                     .collect());
 
-                let rebranched = JsonValue::Array(rebranched.into_iter()
+                let rebranched = JsonValue::Array(rebranched.iter()
                     .map(|(block_hash, _)|  JsonValue::String(block_hash.to_string()))
                     .collect());
 

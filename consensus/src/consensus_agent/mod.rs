@@ -131,11 +131,11 @@ impl<P: ConsensusProtocol + 'static> ConsensusAgent<P> {
         let sync_target = peer.head_hash.clone();
         let peer_arc = peer;
         let sync_protocol = <P::SyncProtocol as SyncProtocol<P::Blockchain>>::new(blockchain.clone(), peer_arc.clone());
-        let inv_agent = InventoryAgent::new(blockchain.clone(), mempool.clone(), inv_mgr, peer_arc.clone(), sync_protocol.clone());
+        let inv_agent = InventoryAgent::new(blockchain.clone(), mempool, inv_mgr, peer_arc.clone(), sync_protocol.clone());
         let this = Arc::new(ConsensusAgent {
             blockchain,
             accounts_chunk_cache,
-            peer: peer_arc.clone(),
+            peer: peer_arc,
             inv_agent,
             sync_protocol,
 

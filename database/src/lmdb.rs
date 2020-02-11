@@ -3,11 +3,8 @@ use std::fmt;
 use std::fs;
 use std::sync::Arc;
 
-use fs2;
-use lmdb_zero;
 pub use lmdb_zero::open;
 use lmdb_zero::traits::LmdbResultExt;
-use parking_lot;
 use rand::{Rng, thread_rng};
 
 use crate::cursor::{ReadCursor, WriteCursor as WriteCursorTrait, RawReadCursor};

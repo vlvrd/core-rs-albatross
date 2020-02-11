@@ -135,7 +135,7 @@ impl<P: ConsensusProtocol + 'static> InventoryManager<P> {
             return;
         }
 
-        let next_agent = next_agent_opt.unwrap().clone();
+        let next_agent = next_agent_opt.unwrap();
         record.1.remove(&next_agent);
         record.0 = Arc::downgrade(&next_agent);
 
@@ -553,7 +553,7 @@ impl<P: ConsensusProtocol + 'static> InventoryAgent<P> {
         trace!("[TX] from {} value {} fee {}", msg.transaction.sender, msg.transaction.value, msg.transaction.fee);
 
         // Check if we have requested this transaction.
-        let vector = InvVector::new(InvVectorType::Transaction, hash.clone());
+        let vector = InvVector::new(InvVectorType::Transaction, hash);
         let state = self.state.read();
         if !state.objects_in_flight.contains(&vector) && !state.objects_that_flew.contains(&vector) {
             warn!("Unsolicited transaction from {} - discarding", self.peer.peer_address());

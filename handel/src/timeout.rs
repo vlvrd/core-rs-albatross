@@ -42,6 +42,6 @@ impl TimeoutStrategy for LinearTimeout {
         debug!("Creating timeout stream: period={:?}, levels={}", self.period, num_levels);
         let stream = stream::iter::<Range<usize>>(0..num_levels)
             .inspect(|level| debug!("Timeout for level {}", level));
-        Box::new(throttle(self.period.clone(), stream))
+        Box::new(throttle(self.period, stream))
     }
 }

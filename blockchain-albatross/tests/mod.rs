@@ -5,7 +5,6 @@ use nimiq_block_albatross::{Block, MacroBlock, PbftCommitMessage, PbftPrepareMes
 use nimiq_block_production_albatross::BlockProducer;
 use nimiq_blockchain_albatross::blockchain::{Blockchain, PushResult, PushError};
 use nimiq_blockchain_base::AbstractBlockchain;
-use nimiq_blockchain_base::Direction;
 use nimiq_bls::{KeyPair, SecretKey};
 use nimiq_database::volatile::VolatileEnvironment;
 use nimiq_hash::{Blake2bHash, Hash};

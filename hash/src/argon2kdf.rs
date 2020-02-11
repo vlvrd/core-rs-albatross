@@ -1,5 +1,3 @@
-use argon2;
-
 pub use argon2::Error as Argon2Error;
 use argon2::{Config, ThreadMode};
 

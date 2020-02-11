@@ -465,7 +465,7 @@ impl<B: AbstractBlockchain + 'static> ConnectionPool<B> {
 
         // Create fresh ConnectionInfo instance.
         let mut state = self.state.write();
-        let connection_id = state.add(ConnectionInfo::outbound(peer_address.clone()));
+        let connection_id = state.add(ConnectionInfo::outbound(peer_address));
         state.connections.get_mut(connection_id).unwrap().set_connection_handle(handle);
 
         state.connecting_count += 1;
@@ -603,7 +603,7 @@ impl<B: AbstractBlockchain + 'static> ConnectionPool<B> {
 
             // Connection accepted.
 
-            let net_address = info.network_connection().map(NetworkConnection::net_address).clone();
+            let net_address = info.network_connection().map(NetworkConnection::net_address);
 
             if let Some(ref net_address) = net_address {
                 state.add_net_address(connection_id, &net_address);
@@ -807,7 +807,7 @@ impl<B: AbstractBlockchain + 'static> ConnectionPool<B> {
             peer.channel.msg_notifier.signal.write().register(move |msg: SignalMessage| {
                 let this = upgrade_weak!(self_weak);
                 let peer_channel = upgrade_weak!(weak_peer_channel);
-                this.signal_processor.on_signal(peer_channel.clone(), msg);
+                this.signal_processor.on_signal(peer_channel, msg);
             });
         }
 
@@ -883,7 +883,7 @@ impl<B: AbstractBlockchain + 'static> ConnectionPool<B> {
 
                             debug!("Connection #{} to {} closed pre-handshake: {:?}", connection_id, info.peer_address().unwrap(), ty);
                             // Only sets a timer and won't reenter connection pool.
-                            self.notifier.read().notify(ConnectionPoolEvent::ConnectError(info.peer_address().expect("PeerAddress not set").clone(), ty));
+                            self.notifier.read().notify(ConnectionPoolEvent::ConnectError(info.peer_address().expect("PeerAddress not set"), ty));
                         },
                         _ => unreachable!(format!("Invalid state, closing connection #{} with network connection not set", connection_id)),
                     }

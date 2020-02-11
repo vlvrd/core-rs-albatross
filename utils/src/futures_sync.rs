@@ -39,6 +39,12 @@ impl WaitGroup {
     }
 }
 
+impl Default for WaitGroup {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl Clone for WaitGroup {
     fn clone(&self) -> Self {
         self.state.lock().count += 1;

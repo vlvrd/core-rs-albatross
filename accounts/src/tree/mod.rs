@@ -115,7 +115,7 @@ impl<A: AccountsTreeLeave> AccountsTree<A> {
             if num_children == 1 && node_prefix != &root_address {
                 txn.remove(&self.db, node_prefix);
 
-                let first_child = node.iter_children().nth(0).unwrap();
+                let first_child = node.iter_children().next().unwrap();
                 return self.update_keys_batch(txn, node_prefix + &first_child.suffix, root_path);
             } else if num_children > 0 || node_prefix == &root_address {
                 // Otherwise, if the node has children left, update it and all keys on the

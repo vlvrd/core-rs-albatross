@@ -51,7 +51,7 @@ mod docker_cmd {
 
     #[shellfn::shell]
     pub fn down<P: ToString>(env_dir: P) -> Result<(), Error> {
-        "docker-compose -f $ENV_DIR/docker-compose.yml down"
+        "docker-compose -f $ENV_DIR/docker-compose.yml down --rmi=all"
     }
 
     #[shellfn::shell]

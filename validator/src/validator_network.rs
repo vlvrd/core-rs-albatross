@@ -4,7 +4,6 @@ use std::fmt;
 
 use failure::Fail;
 use parking_lot::{RwLock, RwLockUpgradableReadGuard};
-use tokio;
 
 use block_albatross::{
     BlockHeader,
@@ -584,7 +583,7 @@ impl ValidatorNetwork {
 
         // The commit handler. This will store the finished commit proof and construct the
         // pBFT proof.
-        let key = block_hash.clone();
+        let key = block_hash;
         pbft.aggregation.read().commit_aggregation.notifier.write()
             .register(weak_passthru_listener(Weak::clone(&self.self_weak), move |this, event| {
                 match event {

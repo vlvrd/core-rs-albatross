@@ -234,7 +234,9 @@ impl<T: Deserialize> DeserializeWithLength for Vec<T> {
 
 impl<T: Serialize> SerializeWithLength for Vec<T> {
     fn serialize<S: Serialize + num::FromPrimitive, W: WriteBytesExt>(&self, writer: &mut W) -> Result<usize, SerializingError> {
-        let mut size = S::from_usize(self.len()).unwrap().serialize(writer)?;
+        let mut size = S::from_usize(self.len())
+            .expect("element count overflows length prefix")
+            .serialize(writer)?;
         for t in self {
             size += t.serialize(writer)?;
         }
@@ -242,7 +244,9 @@ impl<T: Serialize> SerializeWithLength for Vec<T> {
     }
 
     fn serialized_size<S: Serialize + num::FromPrimitive>(&self) -> usize {
-        let mut size = S::from_usize(self.len()).unwrap().serialized_size();
+        let mut size = S::from_usize(self.len())
+            .expect("element count overflows length prefix")
+            .serialized_size();
         for t in self {
             size += t.serialized_size();
         }

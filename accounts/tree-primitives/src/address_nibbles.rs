@@ -5,8 +5,6 @@ use std::ops;
 use std::str;
 use std::usize;
 
-use hex;
-
 use beserial::{Deserialize, DeserializeWithLength, ReadBytesExt, Serialize, SerializeWithLength, SerializingError, WriteBytesExt};
 use hash::{Hash, SerializeContent};
 use keys::Address;

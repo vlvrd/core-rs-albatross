@@ -87,7 +87,7 @@ impl Blockchain {
         }
 
         if (chain.is_empty() || chain[chain.len() - 1].head.header.height > 1) && tail_height == 1 {
-            let genesis_block = NetworkInfo::from_network_id(self.network_id).genesis_block::<Block>().clone();
+            let genesis_block = NetworkInfo::from_network_id(self.network_id).genesis_block::<Block>();
             chain.push(ChainInfo::initial(genesis_block.into_light()));
         }
 

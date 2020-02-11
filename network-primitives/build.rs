@@ -68,7 +68,7 @@ fn main() {
     let out_dir = Path::new(&env::var("OUT_DIR").unwrap()).join("genesis");
     let src_dir = Path::new("src").join("genesis");
     let devnet_override = env::var("NIMIQ_OVERRIDE_DEVNET_CONFIG").ok()
-        .map(|devnet_override| PathBuf::from(devnet_override));
+        .map(PathBuf::from);
 
     info!("Taking genesis config files from: {}", src_dir.display());
     info!("Writing genesis data to: {}", out_dir.display());
