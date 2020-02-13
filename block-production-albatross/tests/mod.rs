@@ -19,7 +19,7 @@ use nimiq_primitives::policy;
 use nimiq_primitives::slot::{ValidatorSlotBand, ValidatorSlots};
 
 /// Secret key of validator. Tests run with `network-primitives/src/genesis/unit-albatross.toml`
-const SECRET_KEY: &'static str = "26a4160cb1092afd1e5f2f0066f29b2c5842c156e373b8dd32b014ec525b5d10";
+const SECRET_KEY: &'static str = "05984595f5a73e8236c04c5d61cc7f8c350ea7c992228d3b2c28af6bf3e2c60c";
 
 #[test]
 fn it_can_produce_micro_blocks() {
