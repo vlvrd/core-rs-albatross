@@ -269,7 +269,7 @@ impl<P: ConsensusProtocol> Consensus<P> {
         }
 
         for agent in state.agents.values() {
-            //agent.relay_transaction(transaction.as_ref());
+            agent.relay_transaction(transaction.as_ref());
         }
     }
 
