@@ -123,7 +123,7 @@ pub const TWO_THIRD_SLOTS: u16 = (2 * SLOTS + 3) / 3;
 pub const EPOCH_LENGTH: u32 = 128;
 
 /// Minimum stake in units
-pub const MIN_STAKE: u64 = 100_000_000;
+pub const MIN_STAKE: u64 = 0;
 
 /// Returns the height of the next macro block after given `block_height`
 #[inline]
