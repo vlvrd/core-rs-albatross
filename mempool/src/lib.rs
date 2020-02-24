@@ -156,7 +156,7 @@ impl<B: AbstractBlockchain + 'static> Mempool<B> {
 
             // Check if transaction has already been mined.
             if self.blockchain.contains_tx_in_validity_window(&hash) {
-                return ReturnCode::Known;
+                return ReturnCode::Invalid;
             }
 
             // Retrieve recipient account and check account type.
